@@ -24,6 +24,10 @@ abstract final class K {
   static const accent = SettingKey<int>('accent', 0xFF5B8CFF);
   static const font = SettingKey<String>('font', 'inter');
   static const animations = SettingKey<bool>('animations', true);
+
+  /// Home screen art: `planet`, `space` or `image`.
+  static const homeScene = SettingKey<String>('homeScene', 'planet');
+  static const homeImage = SettingKey<String>('homeImage', '');
   static const globe = SettingKey<bool>('globe', true);
   static const globeRotation = SettingKey<bool>('globeRotation', true);
   static const globeSpeed = SettingKey<double>('globeSpeed', 1.0);
@@ -193,6 +197,7 @@ abstract final class K {
   static const geoUpdatedAt = SettingKey<int>('_geoUpdatedAt', 0);
   static const lastUpdateCheck = SettingKey<int>('_lastUpdateCheck', 0);
   static const lastPage = SettingKey<String>('_lastPage', 'servers');
+  static const lastSettingsSection = SettingKey<String>('_lastSettingsSection', 'personal');
 }
 
 /// Immutable snapshot of settings values; unknown keys fall back to defaults.

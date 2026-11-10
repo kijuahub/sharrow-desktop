@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -94,14 +96,25 @@ List<Widget> _appearance(BuildContext context) => [
           'system': tr('Авто', 'Auto'),
         }),
         const AccentTile(),
-        ChoiceTile(K.font, title: tr('Шрифт', 'Font'), options: const {'inter': 'Inter', 'onest': 'Onest'}),
+        ChoiceTile(K.font, title: tr('Шрифт', 'Font'), options: const {'inter': 'Inter', 'onest': 'Onest', 'manrope': 'Manrope'}),
         SwitchTile(K.glass, title: tr('Эффект стекла', 'Glass effect'), subtitle: tr('Размытие под плавающими панелями', 'Blur behind floating panels')),
         SliderTile(K.textScale, title: tr('Размер текста', 'Text size'), min: 0.85, max: 1.25, divisions: 8, format: (v) => '${(v * 100).round()}%'),
       ]),
       SettingsGroup(title: tr('Планета', 'Globe'), children: [
-        SwitchTile(K.globe, title: tr('Показывать планету', 'Show globe')),
-        SwitchTile(K.globeRotation, title: tr('Вращение', 'Rotation'), enabled: context.app.settings.get(K.globe)),
-        SliderTile(K.globeSpeed, title: tr('Скорость вращения', 'Rotation speed'), min: 0.25, max: 3, divisions: 11, format: (v) => '×${v.toStringAsFixed(2)}', enabled: context.app.settings.get(K.globe)),
+        ChoiceTile(K.homeScene, title: tr('На главном экране', 'Home screen'), options: {
+          'image': tr('Изображение', 'Image'),
+          'space': tr('Космос', 'Space'),
+          'planet': tr('Планета', 'Planet'),
+        }),
+        if (context.app.settings.get(K.homeScene) == 'image')
+          ActionTile(
+            title: tr('Своё изображение', 'Custom image'),
+            subtitle: context.app.settings.get(K.homeImage).isEmpty ? tr('Не выбрано', 'Not selected') : tr('Выбрано', 'Selected'),
+            label: tr('Выбрать', 'Choose'),
+            onTap: () => _pickHomeImage(context),
+          ),
+        SwitchTile(K.globeRotation, title: tr('Вращение', 'Rotation'), enabled: context.app.settings.get(K.homeScene) == 'planet'),
+        SliderTile(K.globeSpeed, title: tr('Скорость вращения', 'Rotation speed'), min: 0.25, max: 3, divisions: 11, format: (v) => '×${v.toStringAsFixed(2)}', enabled: context.app.settings.get(K.homeScene) == 'planet'),
       ]),
       SettingsGroup(
         title: tr('Анимации и производительность', 'Animations & performance'),
@@ -112,6 +125,24 @@ List<Widget> _appearance(BuildContext context) => [
         ],
       ),
     ];
+
+Future<void> _pickHomeImage(BuildContext context) async {
+  final picked = await FilePicker.platform.pickFiles(type: FileType.image);
+  if (picked == null || picked.files.isEmpty || !context.mounted) return;
+  final file = picked.files.single;
+  final name = file.name;
+  final dot = name.lastIndexOf('.');
+  final ext = dot >= 0 ? name.substring(dot).toLowerCase() : '.png';
+  final safe = const {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'}.contains(ext) ? ext : '.png';
+  final dest = AppPaths.file('home-bg$safe');
+  final bytes = file.bytes ?? (file.path == null ? null : await File(file.path!).readAsBytes());
+  if (bytes == null || !context.mounted) return;
+  await dest.writeAsBytes(bytes, flush: true);
+  if (!context.mounted) return;
+  context.app.settings
+    ..set(K.homeImage, dest.path)
+    ..set(K.homeScene, 'image');
+}
 
 List<Widget> _connection(BuildContext context) => [
       SettingsGroup(title: tr('Режим', 'Mode'), children: [

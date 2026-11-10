@@ -661,7 +661,8 @@ abstract final class LinkParser {
     final base = _fromOutbound(main, (cfg['remarks'] ?? cfg['remark'] ?? cfg['name'] ?? 'Config ${index + 1}').toString());
     if (base == null) return null;
     return ServerProfile(
-      id: hashId(jsonEncode(cfg['outbounds'])),
+      // Remarks and routing differ between provider templates that share one outbound.
+      id: hashId(jsonEncode({'remarks': base.name, 'outbounds': cfg['outbounds'], 'routing': cfg['routing']})),
       name: base.name,
       protocol: base.protocol,
       address: base.address,

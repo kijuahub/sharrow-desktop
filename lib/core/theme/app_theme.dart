@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'tokens.dart';
 
 abstract final class AppTheme {
-  static const fonts = {'inter': 'Inter', 'onest': 'Onest'};
+  static const fonts = {'inter': 'Inter', 'onest': 'Onest', 'manrope': 'Manrope'};
   static const mono = 'monospace';
   static const monoFallback = ['Cascadia Mono', 'Consolas', 'SF Mono', 'Menlo', 'JetBrains Mono', 'DejaVu Sans Mono'];
 

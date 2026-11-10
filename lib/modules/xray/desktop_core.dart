@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
 
 import '../../core/l10n.dart';
 import '../../data/storage/paths.dart';
@@ -33,6 +36,39 @@ class DesktopXrayCore extends VpnCore {
     return bin == null ? null : CoreLocator.version(bin);
   }
 
+  /// Opens (or creates) the named Wintun adapter before Xray starts. wintun logs
+  /// "element not found" from OpenAdapter whenever the adapter is missing.
+  void _prepareWintun(Map<String, dynamic> config, String bin) {
+    if (!Platform.isWindows) return;
+    String? name;
+    for (final ib in (config['inbounds'] as List? ?? const [])) {
+      if (ib is Map && ib['protocol'] == 'tun') {
+        final settings = ib['settings'];
+        if (settings is Map && settings['name'] is String) name = settings['name'] as String;
+      }
+    }
+    if (name == null || name.isEmpty) return;
+    final dll = File('${CoreLocator.assetDir(bin)}${Platform.pathSeparator}wintun.dll');
+    if (!dll.existsSync()) return;
+    try {
+      final lib = DynamicLibrary.open(dll.path);
+      final create = lib.lookupFunction<Pointer<Void> Function(Pointer<Utf16>, Pointer<Utf16>, Pointer<Void>),
+          Pointer<Void> Function(Pointer<Utf16>, Pointer<Utf16>, Pointer<Void>)>('WintunCreateAdapter');
+      final close = lib.lookupFunction<Void Function(Pointer<Void>), void Function(Pointer<Void>)>('WintunCloseAdapter');
+      final n = name.toNativeUtf16();
+      final kind = 'Sharrow'.toNativeUtf16();
+      try {
+        final handle = create(n, kind, nullptr);
+        if (handle != nullptr) close(handle);
+      } finally {
+        calloc.free(n);
+        calloc.free(kind);
+      }
+    } catch (e) {
+      log.w('Wintun adapter was not prepared: $e');
+    }
+  }
+
   Future<void> _ensurePortFree(int port) async {
     try {
       final s = await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
@@ -58,7 +94,10 @@ class DesktopXrayCore extends VpnCore {
       final port = ib['port'];
       if (port is int && port > 0) await _ensurePortFree(port);
     }
-    if (mode == TunnelMode.tun) await Privileges.ensureTun(bin);
+    if (mode == TunnelMode.tun) {
+      await Privileges.ensureTun(bin);
+      _prepareWintun(config, bin);
+    }
 
     _stopping = false;
     _tail.clear();
@@ -79,6 +118,8 @@ class DesktopXrayCore extends VpnCore {
     final ready = Completer<void>();
     void onLine(String line) {
       if (line.trim().isEmpty) return;
+      // wintun prints this when OpenAdapter misses, then creates the adapter. Not a failure.
+      if (line.contains('Failed to find matching adapter name')) return;
       log.core(line);
       _tail.add(line);
       if (_tail.length > 12) _tail.removeAt(0);

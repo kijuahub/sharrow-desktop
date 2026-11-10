@@ -461,7 +461,7 @@ class _GlobePainter extends CustomPainter {
 
     // Server markers.
     final hits = <_Hit>[];
-    final selectedColor = s.widget.connected ? c.success : c.accent;
+    final selectedColor = c.accent;
     _Hit? selectedHit;
     GlobeMarkerProjection? selectedProj;
     final flags = s.widget.showFlags;

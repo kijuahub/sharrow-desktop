@@ -472,7 +472,7 @@ class _ServerTile extends StatelessWidget {
       (tr('Транспорт', 'Transport'), server.transportLabel),
       (tr('Адрес', 'Address'), '${addr(server.address)}:${server.port}'),
       (tr('Страна', 'Country'), Geo.countryName(server.countryCode, ru: L10n.isRu) ?? '—'),
-      (tr('Пинг', 'Latency'), server.ping == null ? (server.isUdp ? tr('после подключения (UDP)', 'after connecting (UDP)') : '—') : (server.ping! < 0 ? tr('недоступен', 'unreachable') : '${server.ping} ms')),
+      (tr('Пинг', 'Latency'), server.ping == null ? '—' : (server.ping! < 0 ? tr('недоступен', 'unreachable') : '${server.ping} ms')),
     ];
     showInfoDialog(
       context,
@@ -511,8 +511,8 @@ class _ServerTile extends StatelessWidget {
           _context(context, box.localToGlobal(box.size.center(Offset.zero)));
         },
         selected: selected,
-        selectedColor: (active ? c.success : c.accent).withValues(alpha: 0.1),
-        border: Border.all(color: selected ? (active ? c.success : c.accent).withValues(alpha: 0.28) : Colors.transparent),
+        selectedColor: c.accent.withValues(alpha: active ? 0.16 : 0.1),
+        border: Border.all(color: selected ? c.accent.withValues(alpha: active ? 0.45 : 0.28) : Colors.transparent),
         radius: Radii.md,
         padding: EdgeInsets.symmetric(horizontal: roomy ? 14 : 10, vertical: roomy ? (compact ? 10 : 12) : 0),
         child: Row(

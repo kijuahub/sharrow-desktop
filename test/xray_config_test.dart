@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sharrow/data/models/settings.dart';
 import 'package:sharrow/modules/routing/routing_profile.dart';
+import 'package:sharrow/modules/ping/ping_service.dart';
 import 'package:sharrow/modules/subscription/link_parser.dart';
 import 'package:sharrow/modules/xray/config_builder.dart';
 
@@ -109,6 +110,35 @@ void main() {
     final r = LinkParser.parseText(_jsonSub);
     expect(r.servers.map((s) => s.name), ['DE JSON', 'NL HY2']);
     expect(r.servers.last.protocol, 'hysteria');
+    expect(r.servers.map((s) => s.id).toSet(), hasLength(2));
+  });
+
+  test('json templates that share an outbound can be selected separately', () {
+    const raw = '''
+[
+  {"remarks":"Автоподбор","outbounds":[
+    {"tag":"proxy","protocol":"hysteria","settings":{"version":2,"address":"h.example","port":443},
+     "streamSettings":{"network":"hysteria","security":"tls","tlsSettings":{"serverName":"h.example"}}}
+  ],"routing":{"balancers":[{"tag":"bal","selector":["proxy"],"strategy":{"type":"leastPing"}}],"rules":[{"type":"field","network":"tcp,udp","balancerTag":"bal"}]}},
+  {"remarks":"YouTube","outbounds":[
+    {"tag":"proxy","protocol":"hysteria","settings":{"version":2,"address":"h.example","port":443},
+     "streamSettings":{"network":"hysteria","security":"tls","tlsSettings":{"serverName":"h.example"}}}
+  ],"routing":{"rules":[{"type":"field","network":"tcp,udp","outboundTag":"proxy"}]}}
+]
+''';
+    final servers = LinkParser.parseText(raw).servers;
+    expect(servers.map((s) => s.name), ['Автоподбор', 'YouTube']);
+    expect(servers[0].id, isNot(servers[1].id));
+    final cfg = XrayConfigBuilder.build(servers[0], const Settings({}), mode: TunnelMode.proxy);
+    final bal = ((cfg['routing'] as Map)['balancers'] as List).first as Map;
+    expect(bal['fallbackTag'], 'proxy');
+  });
+
+  test('icmp output parses english and russian replies', () {
+    expect(parseIcmpOutput('Reply from 1.1.1.1: bytes=32 time=23ms TTL=54'), 23);
+    expect(parseIcmpOutput('Ответ от 1.1.1.1: число байт=32 время=7мс TTL=54'), 7);
+    expect(parseIcmpOutput('64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=12.4 ms'), 12);
+    expect(parseIcmpOutput('Request timed out.'), -1);
   });
 
   for (final v in _variants.entries) {

@@ -239,6 +239,7 @@ abstract final class XrayConfigBuilder {
       }
       routing['rules'] = rules;
       config['routing'] = routing;
+      _repairBalancers(config);
     } else {
       if (server.outbound.isEmpty) throw ConfigException('Empty outbound');
       final pd = profile == null ? null : profileDns(profile, s, fake: fake);
@@ -285,6 +286,32 @@ abstract final class XrayConfigBuilder {
       }
     }
     return config;
+  }
+
+  static const _utilityTags = {'direct', 'block', 'dns-out', 'fragment'};
+
+  /// A least-ping balancer with no probe results yet returns an empty tag and
+  /// drops traffic. Point it at a real outbound until a node is chosen.
+  static void _repairBalancers(Map<String, dynamic> config) {
+    final routing = config['routing'];
+    if (routing is! Map) return;
+    final balancers = routing['balancers'];
+    if (balancers is! List) return;
+    final tags = <String>[
+      for (final o in (config['outbounds'] as List? ?? const []))
+        if (o is Map && o['tag'] is String && !_utilityTags.contains(o['tag'])) o['tag'] as String,
+    ];
+    if (tags.isEmpty) return;
+    for (final raw in balancers) {
+      if (raw is! Map) continue;
+      final selector = [for (final s in (raw['selector'] as List? ?? const [])) '$s'];
+      bool hit(String tag) => selector.isEmpty || selector.any(tag.startsWith);
+      final matched = tags.where(hit).toList();
+      final pool = matched.isEmpty ? tags : matched;
+      if (matched.isEmpty) raw['selector'] = pool;
+      final fallback = raw['fallbackTag'];
+      if (fallback is! String || fallback.isEmpty || !tags.contains(fallback)) raw['fallbackTag'] = pool.first;
+    }
   }
 
   static void _deepMerge(Map<String, dynamic> target, Map<String, dynamic> patch) {

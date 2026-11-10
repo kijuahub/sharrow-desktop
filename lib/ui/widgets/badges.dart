@@ -26,7 +26,7 @@ class PingBadge extends StatelessWidget {
     final text = ping == null ? (udp ? 'UDP' : '—') : (ping! < 0 ? '×' : '$ping');
     return AnimatedSwitcher(
       duration: Motion.fast,
-      child: loading && ping == null && !udp
+      child: loading && ping == null
           ? SizedBox(key: const ValueKey('l'), width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: context.c.textTer))
           : Row(
               key: ValueKey(text),

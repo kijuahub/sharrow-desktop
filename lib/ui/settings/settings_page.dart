@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/l10n.dart';
 import '../../core/theme/tokens.dart';
+import '../../data/models/settings.dart';
 import '../../state/scope.dart';
 import '../widgets/buttons.dart';
 import '../widgets/pressable.dart';
@@ -16,10 +17,20 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  String _selected = kSettingsCategories.first.id;
-  bool _narrowDetail = false;
+  static bool _narrowOpen = false;
+
+  late String _selected;
+  late bool _narrowDetail;
   final _search = TextEditingController();
   String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final saved = context.app.settings.get(K.lastSettingsSection);
+    _selected = kSettingsCategories.any((c) => c.id == saved) ? saved : kSettingsCategories.first.id;
+    _narrowDetail = _narrowOpen;
+  }
 
   @override
   void dispose() {
@@ -70,7 +81,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   child: Pressable(
                     onTap: () => setState(() {
                       _selected = cat.id;
-                      _narrowDetail = true;
+                      _narrowDetail = _narrowOpen = true;
+                      context.app.settings.set(K.lastSettingsSection, cat.id);
                     }),
                     selected: !narrow && _selected == cat.id,
                     selectedColor: c.isDark ? const Color(0x14FFFFFF) : const Color(0x0F000000),
@@ -139,7 +151,7 @@ class _SettingsPageState extends State<SettingsPage> {
         return AnimatedSwitcher(
           duration: Motion.normal,
           child: _narrowDetail
-              ? KeyedSubtree(key: const ValueKey('d'), child: _detail(context, onBack: () => setState(() => _narrowDetail = false)))
+              ? KeyedSubtree(key: const ValueKey('d'), child: _detail(context, onBack: () => setState(() => _narrowDetail = _narrowOpen = false)))
               : KeyedSubtree(key: const ValueKey('n'), child: _nav(context, narrow: true)),
         );
       }

@@ -356,8 +356,7 @@ class SubscriptionsController extends ChangeNotifier {
   }
 
   Future<void> pingServer(ServerProfile s) async {
-    if (s.isUdp) return;
-    s.ping = await ping.tcp(s.address, s.port, _pingTimeout);
+    s.ping = s.isUdp ? await ping.icmp(s.address, _pingTimeout) : await ping.tcp(s.address, s.port, _pingTimeout);
     s.pingAt = DateTime.now();
     _changed();
   }
@@ -365,7 +364,7 @@ class SubscriptionsController extends ChangeNotifier {
   Future<ServerProfile?> pickFastest({String? subId}) async {
     final sub = subId == null ? selectedSub : subs.where((s) => s.id == subId).firstOrNull;
     if (sub == null || sub.servers.isEmpty) return null;
-    final stale = sub.servers.any((s) => !s.isUdp && (s.ping == null || s.pingAt == null || DateTime.now().difference(s.pingAt!).inMinutes > 10));
+    final stale = sub.servers.any((s) => s.ping == null || s.pingAt == null || DateTime.now().difference(s.pingAt!).inMinutes > 10);
     if (stale) await pingSub(sub.id);
     final alive = sub.servers.where((s) => (s.ping ?? -1) > 0).toList()..sort((a, b) => a.ping!.compareTo(b.ping!));
     final best = alive.firstOrNull;

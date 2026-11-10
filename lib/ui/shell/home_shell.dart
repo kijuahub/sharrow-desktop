@@ -284,7 +284,7 @@ class _ConnectionMini extends StatelessWidget {
       builder: (context, _) {
         final status = app.conn.status;
         final color = switch (status) {
-          ConnStatus.connected => c.success,
+          ConnStatus.connected => c.accent,
           ConnStatus.connecting || ConnStatus.disconnecting => c.warning,
           ConnStatus.disconnected => c.textTer,
         };

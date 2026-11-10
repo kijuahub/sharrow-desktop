@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -39,7 +40,11 @@ class ConnectPanel extends StatelessWidget {
         final conn = app.conn;
         final s = app.settings;
         final server = conn.isConnected ? (conn.activeServer ?? app.subs.selectedServer) : app.subs.selectedServer;
-        final globe = s.get(K.globe) ? _Globe(server: server) : _GlobePlaceholder(server: server);
+        final globe = switch (s.get(K.homeScene)) {
+          'space' => const _Space(),
+          'image' => _HomeImage(path: s.get(K.homeImage)),
+          _ => _Globe(server: server),
+        };
 
         final controls = ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
@@ -147,13 +152,80 @@ class _Globe extends StatelessWidget {
   }
 }
 
-class _GlobePlaceholder extends StatelessWidget {
-  const _GlobePlaceholder({required this.server});
+class _HomeImage extends StatelessWidget {
+  const _HomeImage({required this.path});
 
-  final ServerProfile? server;
+  final String path;
 
   @override
-  Widget build(BuildContext context) => Center(child: FlagIcon(server?.countryCode, size: 96));
+  Widget build(BuildContext context) {
+    final file = File(path);
+    if (path.isEmpty || !file.existsSync()) return const SizedBox.expand();
+    return Image.file(file, fit: BoxFit.cover, width: double.infinity, height: double.infinity, errorBuilder: (_, _, _) => const SizedBox.expand());
+  }
+}
+
+class _Space extends StatefulWidget {
+  const _Space();
+
+  @override
+  State<_Space> createState() => _SpaceState();
+}
+
+class _SpaceState extends State<_Space> with SingleTickerProviderStateMixin {
+  static final _stars = List.generate(160, (i) {
+    final r = math.Random(i);
+    return (r.nextDouble(), r.nextDouble(), 0.35 + r.nextDouble() * 1.8, 0.25 + r.nextDouble() * 0.75);
+  });
+
+  late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 90));
+
+  @override
+  void initState() {
+    super.initState();
+    if (context.app.settings.get(K.animations)) _drift.repeat();
+  }
+
+  @override
+  void dispose() {
+    _drift.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return AnimatedBuilder(
+      animation: _drift,
+      builder: (_, _) => CustomPaint(
+        painter: _StarPainter(_stars, _drift.value, c.isDark ? const Color(0xFF07080C) : const Color(0xFFE7EAF2), c.text),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+}
+
+class _StarPainter extends CustomPainter {
+  _StarPainter(this.stars, this.shift, this.bg, this.star);
+
+  final List<(double, double, double, double)> stars;
+  final double shift;
+  final Color bg;
+  final Color star;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = bg);
+    final paint = Paint();
+    for (final (x, y, radius, alpha) in stars) {
+      final dy = (y + shift) % 1.0;
+      paint.color = star.withValues(alpha: alpha);
+      canvas.drawCircle(Offset(x * size.width, dy * size.height), radius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_StarPainter old) => old.shift != shift || old.bg != bg;
 }
 
 class _TopRow extends StatelessWidget {
@@ -170,7 +242,7 @@ class _TopRow extends StatelessWidget {
     final conn = app.conn;
     final c = context.c;
     final (color, text) = switch (conn.status) {
-      ConnStatus.connected => (c.success, tr('Защищено', 'Protected')),
+      ConnStatus.connected => (c.accent, tr('Защищено', 'Protected')),
       ConnStatus.connecting => (c.warning, tr('Подключение…', 'Connecting…')),
       ConnStatus.disconnecting => (c.warning, tr('Отключение…', 'Disconnecting…')),
       ConnStatus.disconnected => (c.textTer, tr('Не защищено', 'Not protected')),
@@ -184,7 +256,7 @@ class _TopRow extends StatelessWidget {
           Text(text, style: context.tt.labelLarge?.copyWith(color: c.textSec)),
           if (conn.isConnected && conn.activeMode != null) ...[
             const SizedBox(width: 8),
-            Tag(conn.activeMode == TunnelMode.tun ? 'TUN' : 'PROXY', color: c.success),
+            Tag(conn.activeMode == TunnelMode.tun ? 'TUN' : 'PROXY', color: c.accent),
           ],
           const Spacer(),
           if (conn.isConnected && app.settings.get(K.showSpeed)) _Speed(stats: conn.stats, delay: conn.realDelay),
@@ -271,8 +343,8 @@ class _ConnectButtonState extends State<ConnectButton> with SingleTickerProvider
     if (!busy && _spin.isAnimating) _spin.stop();
     final connected = conn.isConnected;
     final size = widget.size;
-    final bg = connected ? c.success : (c.isDark ? const Color(0xFF17181C) : Colors.white);
-    final fg = connected ? Colors.white : (busy ? c.warning : c.text);
+    final bg = connected ? c.accent : (c.isDark ? const Color(0xFF17181C) : Colors.white);
+    final fg = connected ? c.onAccent : (busy ? c.warning : c.text);
 
     return Semantics(
       button: true,
@@ -312,7 +384,7 @@ class _ConnectButtonState extends State<ConnectButton> with SingleTickerProvider
                       border: Border.all(color: connected ? Colors.transparent : c.borderStrong, width: 1),
                       boxShadow: [
                         BoxShadow(
-                          color: connected ? c.success.withValues(alpha: 0.38) : Colors.black.withValues(alpha: c.isDark ? 0.5 : 0.1),
+                          color: connected ? c.accent.withValues(alpha: 0.38) : Colors.black.withValues(alpha: c.isDark ? 0.5 : 0.1),
                           blurRadius: connected ? 36 : 22,
                           spreadRadius: connected ? 2 : 0,
                           offset: const Offset(0, 6),
@@ -447,7 +519,7 @@ class _ConnectedTimerState extends State<_ConnectedTimer> {
     final d = widget.since == null ? Duration.zero : DateTime.now().difference(widget.since!);
     return Text(
       '${tr('Подключено', 'Connected')} · ${Fmt.duration(d)}',
-      style: context.tt.bodySmall?.copyWith(color: context.c.success, fontFeatures: const [FontFeature.tabularFigures()]),
+      style: context.tt.bodySmall?.copyWith(color: context.c.accent, fontFeatures: const [FontFeature.tabularFigures()]),
     );
   }
 }
@@ -469,7 +541,7 @@ class _ModeSwitch extends StatelessWidget {
       selected: conn.modeLabel,
       height: 42,
       enabled: conn.status != ConnStatus.disconnecting,
-      accentFor: (v) => v != 'off' && conn.isConnected ? c.success : null,
+      accentFor: (v) => v != 'off' && conn.isConnected ? c.accent : null,
       onChanged: (m) => conn.setMode(m),
     );
   }
