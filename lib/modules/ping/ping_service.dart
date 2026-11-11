@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/services.dart';
+
 import '../../data/models/server.dart';
 
 /// Latency from `ping` output. -1 when the host did not answer.
@@ -34,13 +36,26 @@ class PingService {
   Future<int> icmp(String host, Duration timeout) async {
     if (host.isEmpty) return -1;
     final ms = timeout.inMilliseconds.clamp(500, 15000);
+    if (Platform.isIOS || Platform.isAndroid) {
+      final native = await _mobileIcmp(host, ms);
+      if (native > 0 || Platform.isIOS) return native < 0 ? -1 : native;
+      if (native == -2) {
+        return await _execPing('/system/bin/ping', ['-c', '1', '-W', '${(ms / 1000).ceil()}', host], timeout) ?? -1;
+      }
+      return -1;
+    }
     final args = Platform.isWindows
         ? ['-n', '1', '-w', '$ms', host]
         : Platform.isMacOS
             ? ['-c', '1', '-W', '$ms', host]
             : ['-c', '1', '-W', '${(ms / 1000).ceil()}', host];
+    return await _execPing('ping', args, timeout) ?? -1;
+  }
+
+  /// null when the ping program cannot be started.
+  Future<int?> _execPing(String exe, List<String> args, Duration timeout) async {
     try {
-      final p = await Process.start('ping', args);
+      final p = await Process.start(exe, args);
       final chunks = <int>[];
       final out = p.stdout.listen(chunks.addAll);
       final err = p.stderr.listen(chunks.addAll);
@@ -50,6 +65,15 @@ class PingService {
       await out.cancel();
       await err.cancel();
       return parseIcmpOutput(latin1.decode(chunks, allowInvalid: true));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<int> _mobileIcmp(String host, int timeoutMs) async {
+    try {
+      final v = await const MethodChannel('app.sharrow/vpn').invokeMethod<int>('icmp', {'host': host, 'timeout': timeoutMs});
+      return v ?? -1;
     } catch (_) {
       return -1;
     }

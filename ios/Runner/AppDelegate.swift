@@ -111,15 +111,17 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
       manager?.connection.stopVPNTunnel()
       result(nil)
     case "openSettings":
-      let vpn = URL(string: "App-Prefs:root=General&path=VPN")
-      let app = URL(string: UIApplication.openSettingsURLString)
-      let open: (URL) -> Void = { UIApplication.shared.open($0, options: [:], completionHandler: nil) }
-      if let vpn, UIApplication.shared.canOpenURL(vpn) {
-        open(vpn)
-      } else if let app {
-        open(app)
-      }
+      // shortcut: App-Prefs is private. It opens Settings → VPN; the app page has no VPN switch.
+      openVpnSettings(0)
       result(true)
+    case "icmp":
+      let args = call.arguments as? [String: Any]
+      let host = args?["host"] as? String ?? ""
+      let timeout = args?["timeout"] as? Int ?? 3000
+      DispatchQueue.global(qos: .userInitiated).async {
+        let ms = IcmpPing.ping(host: host, timeoutMs: timeout)
+        DispatchQueue.main.async { result(ms) }
+      }
     case "version":
       result(nil)
     case "isCoreAvailable":
@@ -128,5 +130,65 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Settings → VPN. Never falls back to the app page: that page cannot add a VPN profile.
+  private func openVpnSettings(_ index: Int) {
+    let urls = ["App-Prefs:root=VPN", "App-Prefs:root=General&path=VPN", "prefs:root=General&path=VPN"]
+    guard index < urls.count, let url = URL(string: urls[index]) else { return }
+    UIApplication.shared.open(url, options: [:]) { [weak self] ok in
+      if !ok { self?.openVpnSettings(index + 1) }
+    }
+  }
+}
+
+/// ICMP echo for UDP servers. iOS has no `ping` binary in the app sandbox.
+enum IcmpPing {
+  static func ping(host: String, timeoutMs: Int) -> Int {
+    guard !host.isEmpty else { return -1 }
+    var hints = addrinfo()
+    hints.ai_family = AF_INET
+    hints.ai_socktype = SOCK_DGRAM
+    var info: UnsafeMutablePointer<addrinfo>?
+    guard getaddrinfo(host, nil, &hints, &info) == 0, let first = info?.pointee else { return -1 }
+    defer { freeaddrinfo(info) }
+    let fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)
+    if fd < 0 { return -2 }
+    defer { close(fd) }
+    var tv = timeval(tv_sec: timeoutMs / 1000, tv_usec: Int32((timeoutMs % 1000) * 1000))
+    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+
+    var packet = [UInt8](repeating: 0, count: 16)
+    packet[0] = 8
+    packet[5] = 1
+    packet[7] = 1
+    let sum = checksum(packet)
+    packet[2] = UInt8(sum >> 8)
+    packet[3] = UInt8(sum & 0xff)
+
+    let start = Date()
+    let sent = packet.withUnsafeBytes { raw -> Int in
+      guard let base = raw.baseAddress else { return -1 }
+      return sendto(fd, base, raw.count, 0, first.ai_addr, first.ai_addrlen)
+    }
+    if sent < 0 { return -1 }
+    var buf = [UInt8](repeating: 0, count: 128)
+    let got = buf.withUnsafeMutableBytes { raw -> Int in
+      guard let base = raw.baseAddress else { return -1 }
+      return recvfrom(fd, base, raw.count, 0, nil, nil)
+    }
+    if got <= 0 { return -1 }
+    return max(1, Int(Date().timeIntervalSince(start) * 1000))
+  }
+
+  private static func checksum(_ bytes: [UInt8]) -> UInt16 {
+    var sum = 0
+    var i = 0
+    while i + 1 < bytes.count {
+      sum += (Int(bytes[i]) << 8) | Int(bytes[i + 1])
+      i += 2
+    }
+    while sum > 0xffff { sum = (sum & 0xffff) + (sum >> 16) }
+    return UInt16(truncatingIfNeeded: ~sum)
   }
 }

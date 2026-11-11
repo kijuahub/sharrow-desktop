@@ -95,8 +95,8 @@ Future<void> showVpnPermissionDialog(BuildContext context) {
                 Text(tr('Нужно разрешение VPN', 'VPN permission required'), textAlign: TextAlign.center, style: ctx.tt.titleLarge),
                 const SizedBox(height: 8),
                 Text(
-                  tr('Система не разрешила конфигурацию VPN. Откройте настройки и добавьте Sharrow.',
-                      'The system did not allow the VPN configuration. Open Settings and add Sharrow.'),
+                  tr('Откроется раздел VPN в настройках. Добавьте конфигурацию Sharrow и вернитесь в приложение.',
+                      'Settings will open on the VPN page. Add the Sharrow configuration, then come back.'),
                   textAlign: TextAlign.center,
                   style: ctx.tt.bodyMedium?.copyWith(color: c.textSec, height: 1.45),
                 ),
