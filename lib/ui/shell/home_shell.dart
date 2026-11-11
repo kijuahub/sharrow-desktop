@@ -68,10 +68,12 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _onConn() {
-    if (!Plat.isWindows || _adminDialogOpen || _conn.errorKind != CoreErrorKind.permission) return;
+    if (_adminDialogOpen || _conn.errorKind != CoreErrorKind.permission) return;
+    if (!Plat.isWindows && !Plat.isMobile) return;
     _adminDialogOpen = true;
     _conn.clearError();
-    showAdminDialog(context).whenComplete(() => _adminDialogOpen = false);
+    final dialog = Plat.isWindows ? showAdminDialog(context) : showVpnPermissionDialog(context);
+    dialog.whenComplete(() => _adminDialogOpen = false);
   }
 
   void _toggle(bool narrow) {

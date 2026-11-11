@@ -55,18 +55,70 @@ class PingService {
     }
   }
 
+  /// HTTP request to the server itself. TLS is used for 443 and for TLS outbounds.
+  Future<int> http(ServerProfile server, Duration timeout, {required bool head}) async {
+    if (server.address.isEmpty || server.port <= 0) return -1;
+    final tls = server.port == 443 || server.security == 'tls' || server.security == 'reality';
+    final uri = Uri.parse('${tls ? 'https' : 'http'}://${server.address}:${server.port}/');
+    final client = HttpClient()
+      ..connectionTimeout = timeout
+      ..badCertificateCallback = (_, _, _) => true;
+    try {
+      final sw = Stopwatch()..start();
+      final req = await (head ? client.headUrl(uri) : client.getUrl(uri)).timeout(timeout);
+      req.followRedirects = false;
+      final res = await req.close().timeout(timeout);
+      await res.drain<void>().timeout(timeout);
+      return max(1, sw.elapsedMilliseconds);
+    } catch (_) {
+      return -1;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// [method] is `tcp`, `icmp`, `http-get` or `http-head`.
+  Future<int> measure(ServerProfile server, String method, Duration timeout) {
+    return switch (method) {
+      'icmp' => icmp(server.address, timeout),
+      'http-get' => http(server, timeout, head: false),
+      'http-head' => http(server, timeout, head: true),
+      _ => server.isUdp ? icmp(server.address, timeout) : tcp(server.address, server.port, timeout),
+    };
+  }
+
+  /// One request, through the local HTTP inbound when [httpPort] is set.
+  /// -1 when nothing answers.
+  Future<int> probe(String testUrl, int? httpPort, Duration timeout) async {
+    final client = HttpClient()..connectionTimeout = timeout;
+    if (httpPort != null) client.findProxy = ((_) => 'PROXY 127.0.0.1:$httpPort');
+    try {
+      final sw = Stopwatch()..start();
+      final req = await client.headUrl(Uri.parse(testUrl)).timeout(timeout);
+      final res = await req.close().timeout(timeout);
+      await res.drain<void>();
+      if (res.statusCode >= 500) return -1;
+      return max(1, sw.elapsedMilliseconds);
+    } catch (_) {
+      return -1;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   /// Pings servers with bounded concurrency; [onResult] fires per server.
   Future<void> pingAll(
     List<ServerProfile> servers, {
     required Duration timeout,
     int concurrency = 16,
+    String method = 'tcp',
     void Function(ServerProfile server)? onResult,
   }) async {
     var index = 0;
     Future<void> worker() async {
       while (index < servers.length) {
         final s = servers[index++];
-        s.ping = s.isUdp ? await icmp(s.address, timeout) : await tcp(s.address, s.port, timeout);
+        s.ping = await measure(s, method, timeout);
         s.pingAt = DateTime.now();
         onResult?.call(s);
       }

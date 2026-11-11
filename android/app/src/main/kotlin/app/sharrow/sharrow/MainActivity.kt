@@ -2,6 +2,7 @@ package app.sharrow.sharrow
 
 import android.content.Intent
 import android.net.VpnService
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -50,6 +51,10 @@ class MainActivity : FlutterActivity() {
                 "stop" -> {
                     SharrowVpnService.stop(this)
                     result.success(null)
+                }
+                "openSettings" -> {
+                    startActivity(Intent(Settings.ACTION_VPN_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    result.success(true)
                 }
                 "version" -> result.success(XrayBridge.version())
                 "isCoreAvailable" -> result.success(XrayBridge.isAvailable)

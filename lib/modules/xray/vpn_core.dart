@@ -39,4 +39,7 @@ abstract class VpnCore {
 
   /// Kills engine processes left over from a previous crash.
   Future<void> cleanupOrphans() async {}
+
+  /// Opens the system page where the VPN configuration is approved.
+  Future<void> openVpnSettings() async {}
 }

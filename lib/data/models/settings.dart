@@ -85,6 +85,9 @@ abstract final class K {
   static const pingOnStart = SettingKey<bool>('pingOnStart', true);
   static const pingInterval = SettingKey<int>('pingInterval', 0);
   static const pingTestUrl = SettingKey<String>('pingTestUrl', 'https://www.gstatic.com/generate_204');
+
+  /// `tcp`, `icmp`, `http-get` or `http-head`.
+  static const pingMethod = SettingKey<String>('pingMethod', 'tcp');
   static const realDelay = SettingKey<bool>('realDelay', true);
 
   // TUN

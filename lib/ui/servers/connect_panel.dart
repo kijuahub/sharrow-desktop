@@ -683,6 +683,15 @@ class _Banner extends StatelessWidget {
                     },
                   ),
                 ],
+                if (kind == CoreErrorKind.permission && Plat.isMobile) ...[
+                  const SizedBox(height: 8),
+                  AppButton.secondary(
+                    label: tr('Открыть настройки VPN', 'Open VPN settings'),
+                    icon: Icons.settings_outlined,
+                    height: 32,
+                    onPressed: () => app.conn.core.openVpnSettings(),
+                  ),
+                ],
                 if (kind == CoreErrorKind.missing && Plat.isDesktop) ...[
                   const SizedBox(height: 8),
                   AppButton.secondary(

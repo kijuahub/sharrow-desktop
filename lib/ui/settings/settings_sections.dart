@@ -346,6 +346,12 @@ List<Widget> _dns(BuildContext context) => [
 
 List<Widget> _ping(BuildContext context) => [
       SettingsGroup(title: tr('Проверка задержки', 'Latency test'), children: [
+        ChoiceTile(K.pingMethod, title: tr('Тип пинга', 'Ping type'), subtitle: tr('TCP для UDP-серверов измеряется через ICMP', 'TCP uses ICMP for UDP servers'), options: const {
+          'tcp': 'TCP',
+          'icmp': 'ICMP',
+          'http-get': 'HTTP GET',
+          'http-head': 'HTTP HEAD',
+        }),
         NumberTile(K.pingTimeout, title: tr('Таймаут', 'Timeout'), min: 500, max: 10000, step: 500, suffix: 'ms'),
         NumberTile(K.pingConcurrency, title: tr('Параллельных проверок', 'Concurrent checks'), min: 1, max: 64),
         SwitchTile(K.pingOnStart, title: tr('Пинг при запуске', 'Ping on launch')),

@@ -110,6 +110,16 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
     case "stop":
       manager?.connection.stopVPNTunnel()
       result(nil)
+    case "openSettings":
+      let vpn = URL(string: "App-Prefs:root=General&path=VPN")
+      let app = URL(string: UIApplication.openSettingsURLString)
+      let open: (URL) -> Void = { UIApplication.shared.open($0, options: [:], completionHandler: nil) }
+      if let vpn, UIApplication.shared.canOpenURL(vpn) {
+        open(vpn)
+      } else if let app {
+        open(app)
+      }
+      result(true)
     case "version":
       result(nil)
     case "isCoreAvailable":

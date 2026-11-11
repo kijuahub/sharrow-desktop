@@ -98,6 +98,13 @@ class MobileVpnCore extends VpnCore {
   }
 
   @override
+  Future<void> openVpnSettings() async {
+    try {
+      await _channel.invokeMethod('openSettings');
+    } catch (_) {}
+  }
+
+  @override
   Future<void> stop() async {
     _stopping = true;
     try {
