@@ -68,23 +68,30 @@ jobs:
           v=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
           app=build/ios/iphoneos/Runner.app
           ext="$app/PlugIns/PacketTunnel.appex"
-          # Ad-hoc signature keeps the Network Extension entitlement, which is what
-          # makes iOS show the system "Add VPN Configurations" alert.
-          codesign --force --sign - --timestamp=none --entitlements ios/Runner/Runner.entitlements "$app"
+          # Sign inside out. TrollStore keeps whatever entitlement is already in the
+          # signature. A free Apple ID resign deletes packet-tunnel-provider.
+          find "$app" -depth \( -name '*.framework' -o -name '*.dylib' \) -print0 |
+            while IFS= read -r -d '' item; do
+              codesign --force --sign - --timestamp=none "$item"
+            done
           if [ -d "$ext" ]; then
             codesign --force --sign - --timestamp=none --entitlements ios/PacketTunnel/PacketTunnel.entitlements "$ext"
+          fi
+          codesign --force --sign - --timestamp=none --entitlements ios/Runner/Runner.entitlements "$app"
+          codesign --verify --deep "$app"
+          codesign -d --entitlements :- "$app" | grep -q packet-tunnel-provider
+          if [ -d "$ext" ]; then
             codesign -d --entitlements :- "$ext" | grep -q packet-tunnel-provider
           fi
-          codesign -d --entitlements :- "$app" | grep -q packet-tunnel-provider
+          rm -rf Payload
           mkdir -p Payload dist
           cp -R "$app" Payload/
-          zip -qr "dist/Sharrow-$v-ios-unsigned.ipa" Payload
+          zip -qr "dist/Sharrow-$v-ios-trollstore.ipa" Payload
       - uses: actions/upload-artifact@v4
         with: { name: ios, path: dist/*.ipa }
 
   android:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
