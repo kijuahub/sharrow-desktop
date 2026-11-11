@@ -29,7 +29,8 @@ class PillSegmented<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final index = values.indexOf(selected).clamp(0, values.length - 1);
-    final thumbColor = accentFor?.call(selected) ?? (c.isDark ? const Color(0xFF060708) : c.surface);
+    final thumbColor = accentFor?.call(selected) ?? c.accent;
+    final onThumb = ThemeData.estimateBrightnessForColor(thumbColor) == Brightness.dark ? Colors.white : const Color(0xFF111215);
     return Container(
       height: height,
       padding: const EdgeInsets.all(3),
@@ -73,9 +74,7 @@ class PillSegmented<T> extends StatelessWidget {
                             duration: Motion.fast,
                             style: context.tt.labelLarge!.copyWith(
                               fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
-                              color: i == index
-                                  ? (accentFor?.call(selected) != null ? Colors.white : c.text)
-                                  : c.textSec,
+                              color: i == index ? onThumb : c.textSec,
                             ),
                             child: Text(labels[i], maxLines: 1, overflow: TextOverflow.fade, softWrap: false),
                           ),

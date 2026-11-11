@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/l10n.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/tokens.dart';
 import 'data/models/settings.dart';
 import 'state/app_controller.dart';
 import 'state/scope.dart';
@@ -71,9 +72,9 @@ class _SharrowAppState extends State<SharrowApp> {
           return MaterialApp(
             title: 'Sharrow',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.build(Brightness.light, accent, font: font),
-            darkTheme: AppTheme.build(Brightness.dark, accent, amoled: mode == 'black', font: font),
-            themeMode: _mode(mode),
+            theme: AppTheme.build(Brightness.light, accent, font: font, theme: mode),
+            darkTheme: AppTheme.build(Brightness.dark, accent, amoled: mode == 'black', font: font, theme: mode),
+            themeMode: themePreset(mode) != null ? ThemeMode.dark : _mode(mode),
             themeAnimationDuration: const Duration(milliseconds: 220),
             locale: Locale(L10n.lang),
             supportedLocales: const [Locale('ru'), Locale('en')],

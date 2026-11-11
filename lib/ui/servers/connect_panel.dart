@@ -40,11 +40,20 @@ class ConnectPanel extends StatelessWidget {
         final conn = app.conn;
         final s = app.settings;
         final server = conn.isConnected ? (conn.activeServer ?? app.subs.selectedServer) : app.subs.selectedServer;
-        final globe = switch (s.get(K.homeScene)) {
+        final scene = s.get(K.homeScene);
+        final wallpaper = scene == 'space' || scene == 'image';
+        final style = s.get(K.connectStyle);
+        final lift = scene == 'planet' && s.get(K.planetBehindButton);
+        final floating = style != 'compact';
+        final button = ConnectButton(size: style == 'large' || lift ? 124 : 84, ring: style == 'large');
+        final visual = switch (scene) {
           'space' => const _Space(),
           'image' => _HomeImage(path: s.get(K.homeImage)),
           _ => _Globe(server: server),
         };
+        final stage = wallpaper
+            ? Center(child: floating ? button : const SizedBox.shrink())
+            : _GlobeStack(globe: visual, button: floating ? button : null, lift: lift);
 
         final controls = ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 380),
@@ -52,6 +61,7 @@ class ConnectPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const _Banner(),
+              if (style == 'compact') ...[const Align(alignment: Alignment.centerRight, child: _CompactConnect()), const SizedBox(height: 8)],
               _ServerCard(server: server, onTap: onServerCardTap),
               const SizedBox(height: 12),
               const _ModeSwitch(),
@@ -59,29 +69,45 @@ class ConnectPanel extends StatelessWidget {
           ),
         );
 
-        return Padding(
+        final column = Padding(
           padding: EdgeInsets.fromLTRB(compact ? 16 : 24, compact ? 8 : 16, compact ? 16 : 24, compact ? 16 : 24),
           child: Column(
             children: [
               const _TopRow(),
-              if (compact)
-                SizedBox(height: math.min(MediaQuery.sizeOf(context).width - 32, 340), child: _GlobeStack(globe: globe))
-              else
-                Expanded(child: _GlobeStack(globe: globe)),
+              if (compact) SizedBox(height: math.min(MediaQuery.sizeOf(context).width - 32, 340), child: stage) else Expanded(child: stage),
               SizedBox(height: compact ? 8 : 18),
               controls,
             ],
           ),
         );
+        if (!wallpaper) return column;
+        return Stack(fit: StackFit.expand, children: [
+          Positioned.fill(child: visual),
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x66000000), Color(0x00000000), Color(0x99000000)],
+                  stops: [0, 0.45, 1],
+                ),
+              ),
+            ),
+          ),
+          column,
+        ]);
       },
     );
   }
 }
 
 class _GlobeStack extends StatelessWidget {
-  const _GlobeStack({required this.globe});
+  const _GlobeStack({required this.globe, this.button, this.lift = false});
 
   final Widget globe;
+  final Widget? button;
+  final bool lift;
 
   @override
   Widget build(BuildContext context) {
@@ -91,10 +117,11 @@ class _GlobeStack extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Positioned.fill(child: globe),
-          Positioned(
-            bottom: math.max(0, (box.maxHeight - size) / 2 + size * 0.02),
-            child: const ConnectButton(),
-          ),
+          if (button != null)
+            Positioned(
+              bottom: lift ? math.max(12, box.maxHeight * 0.28) : math.max(0, (box.maxHeight - size) / 2 + size * 0.02),
+              child: button!,
+            ),
         ],
       );
     });
@@ -302,22 +329,25 @@ class _Speed extends StatelessWidget {
 }
 
 class ConnectButton extends StatefulWidget {
-  const ConnectButton({super.key, this.size = 84});
+  const ConnectButton({super.key, this.size = 84, this.ring = false});
 
   final double size;
+  final bool ring;
 
   @override
   State<ConnectButton> createState() => _ConnectButtonState();
 }
 
-class _ConnectButtonState extends State<ConnectButton> with SingleTickerProviderStateMixin {
+class _ConnectButtonState extends State<ConnectButton> with TickerProviderStateMixin {
   late final _spin = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
+  late final _ring = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
   bool _hover = false;
   bool _down = false;
 
   @override
   void dispose() {
     _spin.dispose();
+    _ring.dispose();
     super.dispose();
   }
 
@@ -339,12 +369,15 @@ class _ConnectButtonState extends State<ConnectButton> with SingleTickerProvider
     final c = context.c;
     final conn = context.app.conn;
     final busy = conn.isBusy;
-    if (busy && !_spin.isAnimating) _spin.repeat();
-    if (!busy && _spin.isAnimating) _spin.stop();
     final connected = conn.isConnected;
     final size = widget.size;
     final bg = connected ? c.accent : (c.isDark ? const Color(0xFF17181C) : Colors.white);
     final fg = connected ? c.onAccent : (busy ? c.warning : c.text);
+    if (busy && !_spin.isAnimating) _spin.repeat();
+    if (!busy && _spin.isAnimating) _spin.stop();
+    final spinRing = widget.ring && connected && !busy;
+    if (spinRing && !_ring.isAnimating) _ring.repeat();
+    if (!spinRing && _ring.isAnimating) _ring.stop();
 
     return Semantics(
       button: true,
@@ -372,6 +405,11 @@ class _ConnectButtonState extends State<ConnectButton> with SingleTickerProvider
                     RotationTransition(
                       turns: _spin,
                       child: CustomPaint(size: Size.square(size + 12), painter: _ArcPainter(c.warning)),
+                    ),
+                  if (spinRing)
+                    RotationTransition(
+                      turns: _ring,
+                      child: CustomPaint(size: Size.square(size + 14), painter: _ArcPainter(c.accent, sweep: 4.4)),
                     ),
                   AnimatedContainer(
                     duration: Motion.normal,
@@ -403,10 +441,53 @@ class _ConnectButtonState extends State<ConnectButton> with SingleTickerProvider
   }
 }
 
+Future<void> _toggleCompact(BuildContext context, ConnectionController conn, bool connected) async {
+  if (connected && context.app.settings.get(K.confirmDisconnect)) {
+    final ok = await showConfirm(context, title: tr('Отключить VPN?', 'Disconnect VPN?'), message: tr('Трафик пойдёт напрямую.', 'Traffic will go directly.'), confirm: tr('Отключить', 'Disconnect'));
+    if (!ok || !context.mounted) return;
+  }
+  await conn.toggle();
+}
+
+class _CompactConnect extends StatelessWidget {
+  const _CompactConnect();
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(listenable: context.app.conn, builder: (context, _) => _build(context));
+
+  Widget _build(BuildContext context) {
+    final c = context.c;
+    final conn = context.app.conn;
+    final connected = conn.isConnected;
+    final label = connected ? tr('Отключиться', 'Disconnect') : tr('Подключиться', 'Connect');
+    return Pressable(
+      onTap: conn.isBusy ? null : () => unawaited(_toggleCompact(context, conn, connected)),
+      color: connected ? c.accent : (c.isDark ? const Color(0xFF17181C) : Colors.white),
+      border: Border.all(color: connected ? Colors.transparent : c.borderStrong),
+      radius: 18,
+      padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(color: connected ? c.onAccent.withValues(alpha: 0.16) : c.hover, shape: BoxShape.circle),
+            child: Icon(Icons.power_settings_new_rounded, size: 16, color: connected ? c.onAccent : c.text),
+          ),
+          const SizedBox(width: 8),
+          Text(label, style: context.tt.labelLarge?.copyWith(color: connected ? c.onAccent : c.text, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
 class _ArcPainter extends CustomPainter {
-  _ArcPainter(this.color);
+  _ArcPainter(this.color, {this.sweep = math.pi * 0.6});
 
   final Color color;
+  final double sweep;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -414,7 +495,7 @@ class _ArcPainter extends CustomPainter {
     canvas.drawArc(
       rect.deflate(1.5),
       0,
-      math.pi * 0.6,
+      sweep,
       false,
       Paint()
         ..style = PaintingStyle.stroke
@@ -425,7 +506,7 @@ class _ArcPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ArcPainter old) => old.color != color;
+  bool shouldRepaint(_ArcPainter old) => old.color != color || old.sweep != sweep;
 }
 
 class _ServerCard extends StatelessWidget {

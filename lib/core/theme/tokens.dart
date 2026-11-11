@@ -24,6 +24,32 @@ abstract final class Motion {
   static const emphasized = Cubic(0.2, 0.0, 0, 1.0);
 }
 
+class ThemePreset {
+  const ThemePreset(this.id, this.bg, this.accent, this.ru, this.en);
+
+  final String id;
+  final int bg;
+  final int accent;
+  final String ru;
+  final String en;
+}
+
+/// Tinted dark themes: deep background plus a matching accent.
+const kThemePresets = <ThemePreset>[
+  ThemePreset('green', 0xFF0C1610, 0xFFB6F25C, 'Зелёная', 'Green'),
+  ThemePreset('blue', 0xFF0C121C, 0xFF6CB6FF, 'Синяя', 'Blue'),
+  ThemePreset('lavender', 0xFF14111C, 0xFFCDB4FF, 'Лавандовая', 'Lavender'),
+  ThemePreset('banana', 0xFF16140C, 0xFFFFE14A, 'Банановая', 'Banana'),
+  ThemePreset('peach', 0xFF1A1210, 0xFFFFB088, 'Персиковая', 'Peach'),
+];
+
+ThemePreset? themePreset(String id) {
+  for (final p in kThemePresets) {
+    if (p.id == id) return p;
+  }
+  return null;
+}
+
 const kAccents = <int>[
   0xFF5B8CFF, // blue
   0xFF34C38F, // green
@@ -103,6 +129,31 @@ class SColors extends ThemeExtension<SColors> {
         glass: const Color(0xB8141519),
         dot: const Color(0xFFDADDE3),
       );
+
+  /// Dark palette washed with [bg], used by the named color themes.
+  factory SColors.tinted(Color bg, Color accent) {
+    Color lift(double amount) => Color.alphaBlend(Colors.white.withValues(alpha: amount), bg);
+    return SColors(
+      brightness: Brightness.dark,
+      bg: bg,
+      sidebar: lift(0.03),
+      surface: lift(0.06),
+      surfaceHi: lift(0.1),
+      hover: const Color(0x14FFFFFF),
+      border: const Color(0x1AFFFFFF),
+      borderStrong: const Color(0x30FFFFFF),
+      text: const Color(0xFFF5F6F4),
+      textSec: const Color(0xFFA8AFA8),
+      textTer: const Color(0xFF6E756F),
+      accent: accent,
+      onAccent: _onAccent(accent),
+      success: const Color(0xFF34D399),
+      warning: const Color(0xFFFBBF24),
+      danger: const Color(0xFFF87171),
+      glass: bg.withValues(alpha: 0.9),
+      dot: accent,
+    );
+  }
 
   /// Pure-black AMOLED variant of the dark palette.
   factory SColors.black(Color accent) => SColors(

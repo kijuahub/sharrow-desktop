@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/legacy.dart';
 
 import '../core/brand.dart';
+import '../core/brand_icons.dart';
 import '../core/l10n.dart';
 import '../core/platform.dart';
 import '../data/models/settings.dart';
@@ -124,6 +125,7 @@ class AppController extends ChangeNotifier with WindowListener {
       }
       windowManager.addListener(this);
       if (settings.get(K.showTray)) await tray.init();
+      await _applyIcon();
       SingleInstance.listen((a) {
         showWindow();
         if (a.contains('--tun')) conn.setMode('tun');
@@ -391,6 +393,18 @@ class AppController extends ChangeNotifier with WindowListener {
 
   Timer? _restartDebounce;
 
+  Future<void> _applyIcon() async {
+    final id = settings.get(K.appIcon);
+    final icon = brandIconById(id);
+    if (settings.get(K.showTray)) await tray.useBrand(id == 'default' ? null : icon.asset);
+    if (!Plat.isWindows || id == 'default') return;
+    try {
+      await windowManager.setIcon(icon.asset);
+    } catch (e) {
+      log.w('Window icon was not applied: $e');
+    }
+  }
+
   void _onSetting(String id) {
     switch (id) {
       case 'language':
@@ -402,7 +416,9 @@ class AppController extends ChangeNotifier with WindowListener {
       case 'autostart':
         unawaited(AutostartService.apply(settings.get(K.autostart)));
       case 'showTray':
-        settings.get(K.showTray) ? tray.init().then((_) => _syncTray()) : tray.dispose();
+        settings.get(K.showTray) ? tray.init().then((_) => _applyIcon().then((_) => _syncTray())) : tray.dispose();
+      case 'appIcon':
+        unawaited(_applyIcon());
       case 'customCorePath':
         CoreLocator.customPath = settings.get(K.customCorePath);
         conn.core.version().then((v) {

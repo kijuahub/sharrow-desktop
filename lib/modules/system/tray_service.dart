@@ -50,7 +50,8 @@ class TrayService with TrayListener {
   final String Function() clickAction;
 
   bool _active = false;
-  bool? _iconConnected;
+  String? _brandAsset;
+  String? _shownAsset;
   Timer? _debounce;
   TrayState? _pending;
 
@@ -66,14 +67,22 @@ class TrayService with TrayListener {
     }
   }
 
+  /// Null keeps the default tray glyph, which still changes while connected.
+  Future<void> useBrand(String? asset) async {
+    if (_brandAsset == asset) return;
+    _brandAsset = asset;
+    _shownAsset = null;
+    if (_active) await _setIcon(_pending?.connected ?? false);
+  }
+
   Future<void> _setIcon(bool connected) async {
-    if (_iconConnected == connected) return;
-    _iconConnected = connected;
-    if (Platform.isMacOS) {
-      await trayManager.setIcon(connected ? 'assets/icons/tray_light_connected.png' : 'assets/icons/tray_light.png', isTemplate: !connected);
-    } else {
-      await trayManager.setIcon(connected ? 'assets/icons/tray_app_connected.png' : 'assets/icons/tray_app.png');
-    }
+    final asset = _brandAsset ??
+        (Platform.isMacOS
+            ? (connected ? 'assets/icons/tray_light_connected.png' : 'assets/icons/tray_light.png')
+            : (connected ? 'assets/icons/tray_app_connected.png' : 'assets/icons/tray_app.png'));
+    if (_shownAsset == asset) return;
+    _shownAsset = asset;
+    await trayManager.setIcon(asset, isTemplate: Platform.isMacOS && _brandAsset == null && !connected);
   }
 
   void update(TrayState state) {

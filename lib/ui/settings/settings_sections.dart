@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/brand.dart';
+import '../../core/brand_icons.dart';
 import '../../core/format.dart';
 import '../../core/l10n.dart';
 import '../../core/platform.dart';
@@ -89,16 +90,27 @@ List<Widget> _personal(BuildContext context) => [
 
 List<Widget> _appearance(BuildContext context) => [
       SettingsGroup(title: tr('Тема', 'Theme'), children: [
-        ChoiceTile(K.themeMode, title: tr('Оформление', 'Appearance'), segmented: true, options: {
-          'dark': tr('Тёмная', 'Dark'),
-          'black': tr('Чёрная', 'Black'),
-          'light': tr('Светлая', 'Light'),
-          'system': tr('Авто', 'Auto'),
-        }),
+        const _ThemePicker(),
         const AccentTile(),
         ChoiceTile(K.font, title: tr('Шрифт', 'Font'), options: const {'inter': 'Inter', 'onest': 'Onest', 'manrope': 'Manrope'}),
         SwitchTile(K.glass, title: tr('Эффект стекла', 'Glass effect'), subtitle: tr('Размытие под плавающими панелями', 'Blur behind floating panels')),
         SliderTile(K.textScale, title: tr('Размер текста', 'Text size'), min: 0.85, max: 1.25, divisions: 8, format: (v) => '${(v * 100).round()}%'),
+      ]),
+      SettingsGroup(title: tr('Иконка приложения', 'App icon'), children: const [
+        _IconPicker(),
+      ]),
+      SettingsGroup(title: tr('Кнопка подключения', 'Connect button'), children: [
+        ChoiceTile(K.connectStyle, title: tr('Размер', 'Size'), options: {
+          'compact': tr('Компактная', 'Compact'),
+          'standard': tr('Стандартная', 'Standard'),
+          'large': tr('Большая', 'Large'),
+        }),
+        if (context.app.settings.get(K.homeScene) == 'planet')
+          SwitchTile(
+            K.planetBehindButton,
+            title: tr('Скрыть планету за кнопкой', 'Hide the planet behind the button'),
+            subtitle: tr('Кнопка поднимается выше и становится больше', 'The button moves up and grows'),
+          ),
       ]),
       SettingsGroup(title: tr('Планета', 'Globe'), children: [
         ChoiceTile(K.homeScene, title: tr('На главном экране', 'Home screen'), options: {
@@ -125,6 +137,101 @@ List<Widget> _appearance(BuildContext context) => [
         ],
       ),
     ];
+
+class _ThemePicker extends StatelessWidget {
+  const _ThemePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.app.settings;
+    final current = s.get(K.themeMode);
+    final base = <(String, String, Color, Color)>[
+      ('dark', tr('Тёмная', 'Dark'), const Color(0xFF0B0C0E), const Color(0xFF5B8CFF)),
+      ('black', tr('Чёрная', 'Black'), const Color(0xFF000000), const Color(0xFF5B8CFF)),
+      ('light', tr('Светлая', 'Light'), const Color(0xFFF4F4F6), const Color(0xFF5B8CFF)),
+      ('system', tr('Авто', 'Auto'), const Color(0xFF2A2C31), const Color(0xFFE7E8EA)),
+      for (final p in kThemePresets) (p.id, tr(p.ru, p.en), Color(p.bg), Color(p.accent)),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 12,
+        children: [
+          for (final (id, label, bg, accent) in base)
+            Pressable(
+              onTap: () {
+                s.set(K.themeMode, id);
+                final preset = themePreset(id);
+                if (preset != null) s.set(K.accent, preset.accent);
+              },
+              radius: 12,
+              padding: const EdgeInsets.all(2),
+              border: Border.all(color: current == id ? context.c.accent : Colors.transparent, width: 2),
+              child: SizedBox(
+                width: 72,
+                child: Column(
+                  children: [
+                    Container(
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: context.c.border),
+                      ),
+                      alignment: Alignment.center,
+                      child: Container(width: 14, height: 14, decoration: BoxDecoration(color: accent, shape: BoxShape.circle)),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.tt.labelSmall?.copyWith(color: current == id ? context.c.text : context.c.textSec)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IconPicker extends StatelessWidget {
+  const _IconPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.app.settings;
+    final current = s.get(K.appIcon);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 12,
+        children: [
+          for (final icon in kBrandIcons)
+            Pressable(
+              onTap: () => s.set(K.appIcon, icon.id),
+              radius: 16,
+              padding: const EdgeInsets.all(3),
+              border: Border.all(color: current == icon.id ? context.c.accent : Colors.transparent, width: 2),
+              child: SizedBox(
+                width: 64,
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(icon.asset, width: 52, height: 52, fit: BoxFit.cover),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(icon.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.tt.labelSmall?.copyWith(color: current == icon.id ? context.c.text : context.c.textSec)),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 Future<void> _pickHomeImage(BuildContext context) async {
   final picked = await FilePicker.platform.pickFiles(type: FileType.image);

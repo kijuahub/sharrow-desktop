@@ -22,6 +22,9 @@ abstract final class K {
   // Appearance
   static const themeMode = SettingKey<String>('themeMode', 'dark');
   static const accent = SettingKey<int>('accent', 0xFF5B8CFF);
+  static const appIcon = SettingKey<String>('appIcon', 'default');
+  static const connectStyle = SettingKey<String>('connectStyle', 'standard');
+  static const planetBehindButton = SettingKey<bool>('planetBehindButton', false);
   static const font = SettingKey<String>('font', 'inter');
   static const animations = SettingKey<bool>('animations', true);
 

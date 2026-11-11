@@ -8,10 +8,13 @@ abstract final class AppTheme {
   static const mono = 'monospace';
   static const monoFallback = ['Cascadia Mono', 'Consolas', 'SF Mono', 'Menlo', 'JetBrains Mono', 'DejaVu Sans Mono'];
 
-  static ThemeData build(Brightness brightness, Color accent, {bool amoled = false, String font = 'Inter'}) {
-    final c = brightness == Brightness.light
-        ? SColors.light(accent)
-        : (amoled ? SColors.black(accent) : SColors.dark(accent));
+  static ThemeData build(Brightness brightness, Color accent, {bool amoled = false, String font = 'Inter', String theme = 'dark'}) {
+    final preset = themePreset(theme);
+    final c = preset != null
+        ? SColors.tinted(Color(preset.bg), accent)
+        : brightness == Brightness.light
+            ? SColors.light(accent)
+            : (amoled ? SColors.black(accent) : SColors.dark(accent));
     final scheme = ColorScheme.fromSeed(
       seedColor: c.accent,
       brightness: brightness,

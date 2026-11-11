@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/brand.dart';
+import '../../core/brand_icons.dart';
 import '../../core/l10n.dart';
 import '../../core/platform.dart';
 import '../../core/theme/tokens.dart';
@@ -89,8 +90,15 @@ class _HomeShellState extends State<HomeShell> {
     return LayoutBuilder(builder: (context, box) {
       final narrow = box.maxWidth < 640;
       final burger = IconBtn(icon: Icons.menu_rounded, tooltip: tr('Меню', 'Menu'), onTap: () => _toggle(narrow));
+      final iconId = app.settings.get(K.appIcon);
       final title = Row(mainAxisSize: MainAxisSize.min, children: [
-        SharrowMark(size: 16, color: c.text),
+        if (iconId == 'default')
+          SharrowMark(size: 16, color: c.text)
+        else
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Image.asset(brandIconById(iconId).asset, width: 18, height: 18, fit: BoxFit.cover),
+          ),
         const SizedBox(width: 8),
         Text('Sharrow', style: context.tt.titleSmall),
       ]);
