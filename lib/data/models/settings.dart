@@ -86,7 +86,7 @@ abstract final class K {
   static const pingInterval = SettingKey<int>('pingInterval', 0);
   static const pingTestUrl = SettingKey<String>('pingTestUrl', 'https://www.gstatic.com/generate_204');
 
-  /// `tcp`, `icmp`, `http-get` or `http-head`.
+  /// `tcp`, `icmp`, `http-get`, `http-head` or `sharrow`.
   static const pingMethod = SettingKey<String>('pingMethod', 'tcp');
   static const realDelay = SettingKey<bool>('realDelay', true);
 

@@ -179,7 +179,7 @@ class ChoiceTile<T> extends StatelessWidget {
       enabled: enabled,
       trailing: Builder(
         builder: (ctx) => Pressable(
-          color: context.c.surfaceHi,
+          color: context.c.glass,
           border: Border.all(color: context.c.border),
           radius: Radii.sm + 2,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),

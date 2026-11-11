@@ -344,6 +344,7 @@ class SubscriptionsController extends ChangeNotifier {
       timeout: _pingTimeout,
       concurrency: settings.get(K.pingConcurrency),
       method: settings.get(K.pingMethod),
+      settings: settings.snapshot,
       onResult: (_) {
         final now = DateTime.now();
         if (now.difference(lastNotify).inMilliseconds > 120) {
@@ -357,7 +358,7 @@ class SubscriptionsController extends ChangeNotifier {
   }
 
   Future<void> pingServer(ServerProfile s) async {
-    s.ping = await ping.measure(s, settings.get(K.pingMethod), _pingTimeout);
+    s.ping = await ping.measure(s, settings.get(K.pingMethod), _pingTimeout, settings: settings.snapshot);
     s.pingAt = DateTime.now();
     _changed();
   }

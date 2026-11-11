@@ -114,10 +114,11 @@ List<Widget> _appearance(BuildContext context) => [
       ]),
       SettingsGroup(title: tr('Планета', 'Globe'), children: [
         ChoiceTile(K.homeScene, title: tr('На главном экране', 'Home screen'), options: {
+          'empty': tr('Пусто', 'Empty'),
           'image': tr('Изображение', 'Image'),
           'space': tr('Космос', 'Space'),
           'planet': tr('Планета', 'Planet'),
-        }),
+        }, segmented: false),
         if (context.app.settings.get(K.homeScene) == 'image')
           ActionTile(
             title: tr('Своё изображение', 'Custom image'),
@@ -346,12 +347,13 @@ List<Widget> _dns(BuildContext context) => [
 
 List<Widget> _ping(BuildContext context) => [
       SettingsGroup(title: tr('Проверка задержки', 'Latency test'), children: [
-        ChoiceTile(K.pingMethod, title: tr('Тип пинга', 'Ping type'), subtitle: tr('TCP для UDP-серверов измеряется через ICMP', 'TCP uses ICMP for UDP servers'), options: const {
+        ChoiceTile(K.pingMethod, title: tr('Тип пинга', 'Ping type'), subtitle: tr('TCP для UDP-серверов измеряется через ICMP. Sharrow Ping — HTTP GET через прокси этого сервера.', 'TCP uses ICMP for UDP servers. Sharrow Ping is an HTTP GET through that server\'s proxy.'), options: const {
           'tcp': 'TCP',
           'icmp': 'ICMP',
           'http-get': 'HTTP GET',
           'http-head': 'HTTP HEAD',
-        }),
+          'sharrow': 'Sharrow Ping',
+        }, segmented: false),
         NumberTile(K.pingTimeout, title: tr('Таймаут', 'Timeout'), min: 500, max: 10000, step: 500, suffix: 'ms'),
         NumberTile(K.pingConcurrency, title: tr('Параллельных проверок', 'Concurrent checks'), min: 1, max: 64),
         SwitchTile(K.pingOnStart, title: tr('Пинг при запуске', 'Ping on launch')),

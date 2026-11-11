@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -49,6 +50,7 @@ class ConnectPanel extends StatelessWidget {
         final visual = switch (scene) {
           'space' => const _Space(),
           'image' => _HomeImage(path: s.get(K.homeImage)),
+          'empty' => const SizedBox.shrink(),
           _ => _Globe(server: server),
         };
         final stage = wallpaper
@@ -371,7 +373,6 @@ class _ConnectButtonState extends State<ConnectButton> with TickerProviderStateM
     final busy = conn.isBusy;
     final connected = conn.isConnected;
     final size = widget.size;
-    final bg = connected ? c.accent : (c.isDark ? const Color(0xFF17181C) : Colors.white);
     final fg = connected ? c.onAccent : (busy ? c.warning : c.text);
     if (busy && !_spin.isAnimating) _spin.repeat();
     if (!busy && _spin.isAnimating) _spin.stop();
@@ -411,15 +412,18 @@ class _ConnectButtonState extends State<ConnectButton> with TickerProviderStateM
                       turns: _ring,
                       child: CustomPaint(size: Size.square(size + 14), painter: _ArcPainter(c.accent, sweep: 4.4)),
                     ),
-                  AnimatedContainer(
+                  ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                      child: AnimatedContainer(
                     duration: Motion.normal,
                     curve: Motion.curve,
                     width: size,
                     height: size,
                     decoration: BoxDecoration(
-                      color: bg,
+                      color: connected ? c.accent.withValues(alpha: 0.72) : c.glass,
                       shape: BoxShape.circle,
-                      border: Border.all(color: connected ? Colors.transparent : c.borderStrong, width: 1),
+                      border: Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border, width: 1),
                       boxShadow: [
                         BoxShadow(
                           color: connected ? c.accent.withValues(alpha: 0.38) : Colors.black.withValues(alpha: c.isDark ? 0.5 : 0.1),
@@ -430,6 +434,8 @@ class _ConnectButtonState extends State<ConnectButton> with TickerProviderStateM
                       ],
                     ),
                     child: Icon(Icons.power_settings_new_rounded, size: size * 0.4, color: fg),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -460,10 +466,14 @@ class _CompactConnect extends StatelessWidget {
     final conn = context.app.conn;
     final connected = conn.isConnected;
     final label = connected ? tr('Отключиться', 'Disconnect') : tr('Подключиться', 'Connect');
-    return Pressable(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Pressable(
       onTap: conn.isBusy ? null : () => unawaited(_toggleCompact(context, conn, connected)),
-      color: connected ? c.accent : (c.isDark ? const Color(0xFF17181C) : Colors.white),
-      border: Border.all(color: connected ? Colors.transparent : c.borderStrong),
+      color: connected ? c.accent.withValues(alpha: 0.72) : c.glass,
+      border: Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border),
       radius: 18,
       padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
       child: Row(
@@ -478,6 +488,8 @@ class _CompactConnect extends StatelessWidget {
           const SizedBox(width: 8),
           Text(label, style: context.tt.labelLarge?.copyWith(color: connected ? c.onAccent : c.text, fontWeight: FontWeight.w600)),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -526,9 +538,13 @@ class _ServerCard extends StatelessWidget {
       ConnStatus.disconnecting => tr('Отключение…', 'Disconnecting…'),
       ConnStatus.disconnected => tr('Отключено', 'Disconnected'),
     };
-    return Pressable(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Radii.xl),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Pressable(
       onTap: onTap,
-      color: c.isDark ? const Color(0xFF17181C) : c.surface,
+      color: c.glass,
       border: Border.all(color: c.border),
       radius: Radii.xl,
       pressScale: 0.99,
@@ -564,6 +580,8 @@ class _ServerCard extends StatelessWidget {
             Icon(Icons.chevron_right_rounded, size: 18, color: c.textTer),
           ],
         ],
+      ),
+        ),
       ),
     );
   }
@@ -616,14 +634,24 @@ class _ModeSwitch extends StatelessWidget {
     final app = context.app;
     final conn = app.conn;
     final c = context.c;
-    return PillSegmented<String>(
-      values: const ['off', 'proxy', 'tun'],
-      labels: const ['Off', 'Proxy', 'TUN'],
-      selected: conn.modeLabel,
-      height: 42,
-      enabled: conn.status != ConnStatus.disconnecting,
-      accentFor: (v) => v != 'off' && conn.isConnected ? c.accent : null,
-      onChanged: (m) => conn.setMode(m),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: c.glass, borderRadius: BorderRadius.circular(24), border: Border.all(color: c.border)),
+          child: PillSegmented<String>(
+            values: const ['off', 'proxy', 'tun'],
+            labels: const ['Off', 'Proxy', 'TUN'],
+            selected: conn.modeLabel,
+            height: 42,
+            glass: true,
+            enabled: conn.status != ConnStatus.disconnecting,
+            accentFor: (v) => v != 'off' && conn.isConnected ? c.accent : null,
+            onChanged: (m) => conn.setMode(m),
+          ),
+        ),
+      ),
     );
   }
 }

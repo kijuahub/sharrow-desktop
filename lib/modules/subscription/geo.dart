@@ -79,6 +79,7 @@ abstract final class Geo {
     'NZ': (-40.9, 174.9, 'New Zealand', 'Новая Зеландия'),
     'CY': (35.1, 33.4, 'Cyprus', 'Кипр'),
     'MT': (35.9, 14.4, 'Malta', 'Мальта'),
+    'EU': (50.8, 4.4, 'European Union', 'Евросоюз'),
     'AL': (41.2, 20.2, 'Albania', 'Албания'),
     'MK': (41.6, 21.7, 'North Macedonia', 'Северная Македония'),
     'BA': (43.9, 17.7, 'Bosnia', 'Босния'),
@@ -113,6 +114,7 @@ abstract final class Geo {
     'korea': 'KR', 'корея': 'KR', 'seoul': 'KR', 'singapore': 'SG', 'сингапур': 'SG',
     'malaysia': 'MY', 'thailand': 'TH', 'vietnam': 'VN', 'indonesia': 'ID', 'philippines': 'PH',
     'australia': 'AU', 'австралия': 'AU', 'sydney': 'AU', 'new zealand': 'NZ', 'south africa': 'ZA', 'egypt': 'EG', 'cyprus': 'CY',
+    'european union': 'EU', 'евросоюз': 'EU',
   };
 
   static final _codeToken = RegExp(r'(?:^|[^A-Za-z])([A-Z]{2})(?:[^A-Za-z]|$)');

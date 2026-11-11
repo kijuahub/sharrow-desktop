@@ -55,6 +55,7 @@ class ConnectionController extends ChangeNotifier {
   /// 'off' | 'proxy' | 'tun' as shown by the mode switch.
   String get modeLabel {
     if (status == ConnStatus.disconnected || status == ConnStatus.disconnecting) return 'off';
+    if (status == ConnStatus.connecting) return preferredMode.name;
     return (activeMode ?? preferredMode).name;
   }
 
@@ -72,12 +73,7 @@ class ConnectionController extends ChangeNotifier {
 
   Future<void> toggle() => isConnected || status == ConnStatus.connecting ? disconnect() : connect();
 
-  TunnelMode _other(TunnelMode m) => m == TunnelMode.tun ? TunnelMode.proxy : TunnelMode.tun;
-
-  bool _canFallback(CoreErrorKind kind) =>
-      kind != CoreErrorKind.permission && kind != CoreErrorKind.missing && kind != CoreErrorKind.unsupported;
-
-  Future<void> connect({TunnelMode? mode, bool fromRetry = false, bool fallback = false}) async {
+  Future<void> connect({TunnelMode? mode, bool fromRetry = false}) async {
     if (status == ConnStatus.disconnecting) return;
     if (status == ConnStatus.connecting && !fromRetry) return;
     final m = mode ?? preferredMode;
@@ -109,6 +105,10 @@ class ConnectionController extends ChangeNotifier {
       final profile = subs.routingFor(server);
       if (profile != null && Plat.isDesktop) await profile.ensureGeo(AppPaths.core.path);
       if (session != _session) return;
+      if (m == TunnelMode.tun && Plat.isDesktop) {
+        await SystemProxy.disable();
+        settings.set(K.proxyApplied, false);
+      }
       final config = XrayConfigBuilder.build(server, s, mode: m, mobile: Plat.isMobile, profile: profile);
       await core.start(
         config,
@@ -121,20 +121,8 @@ class ConnectionController extends ChangeNotifier {
       if (m == TunnelMode.proxy && Plat.isDesktop && s.get(K.setSystemProxy)) {
         final ok = await SystemProxy.enable(httpPort: s.get(K.httpPort), socksPort: s.get(K.socksPort), bypass: s.get(K.proxyBypass));
         settings.set(K.proxyApplied, ok);
-        if (!ok && !fallback) {
-          log.w('System proxy was not applied, switching to tun');
-          await connect(mode: TunnelMode.tun, fromRetry: true, fallback: true);
-          return;
-        }
       }
       if (session != _session) return;
-
-      if (!fallback && s.get(K.httpInbound) && !await _trafficOk(s, m)) {
-        if (session != _session) return;
-        log.w('${m.name} carries no traffic, switching to ${_other(m).name}');
-        await connect(mode: _other(m), fromRetry: true, fallback: true);
-        return;
-      }
 
       activeServer = server;
       activeMode = m;
@@ -149,11 +137,6 @@ class ConnectionController extends ChangeNotifier {
       if (s.get(K.realDelay) && s.get(K.httpInbound)) unawaited(measureDelay());
     } on CoreException catch (e) {
       if (session != _session) return;
-      if (!fallback && _canFallback(e.kind)) {
-        log.w('${m.name} failed (${e.message}), switching to ${_other(m).name}');
-        await connect(mode: _other(m), fromRetry: true, fallback: true);
-        return;
-      }
       await _fail(e.message, e.kind);
     } on ConfigException catch (e) {
       if (session != _session) return;
@@ -162,19 +145,6 @@ class ConnectionController extends ChangeNotifier {
       if (session != _session) return;
       await _fail('$e', CoreErrorKind.startFailed);
     }
-  }
-
-  /// Core answers, and in TUN the system path does too. One retry covers a slow start.
-  Future<bool> _trafficOk(Settings s, TunnelMode m) async {
-    final timeout = const Duration(seconds: 8);
-    final url = s.get(K.pingTestUrl);
-    Future<bool> coreUp() async => (await subs.ping.probe(url, s.get(K.httpPort), timeout)) > 0;
-    if (!await coreUp()) {
-      await Future<void>.delayed(const Duration(milliseconds: 700));
-      if (!await coreUp()) return false;
-    }
-    if (m != TunnelMode.tun) return true;
-    return (await subs.ping.probe(url, null, timeout)) > 0;
   }
 
   Future<void> _fail(String message, CoreErrorKind kind) async {

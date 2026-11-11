@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/l10n.dart';
@@ -72,7 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: ListView(
+          child: _SmoothList(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
             children: [
               for (final cat in _filtered)
@@ -118,7 +119,7 @@ class _SettingsPageState extends State<SettingsPage> {
       listenable: Listenable.merge([app.settings, app]),
       builder: (context, _) => AnimatedSwitcher(
         duration: Motion.fast,
-        child: ListView(
+        child: _SmoothList(
           key: ValueKey(cat.id),
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           children: [
@@ -163,5 +164,45 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       );
     });
+  }
+}
+
+class _SmoothList extends StatefulWidget {
+  const _SmoothList({super.key, required this.children, this.padding});
+
+  final List<Widget> children;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  State<_SmoothList> createState() => _SmoothListState();
+}
+
+class _SmoothListState extends State<_SmoothList> {
+  final _ctrl = ScrollController();
+  double? _goal;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _wheel(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_ctrl.hasClients || MediaQuery.disableAnimationsOf(context)) return;
+    GestureBinding.instance.pointerSignalResolver.register(event, (claimed) {
+      if (claimed is! PointerScrollEvent || !_ctrl.hasClients) return;
+      final p = _ctrl.position;
+      final base = _goal ?? _ctrl.offset;
+      _goal = (base + claimed.scrollDelta.dy).clamp(p.minScrollExtent, p.maxScrollExtent);
+      _ctrl.animateTo(_goal!, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: _wheel,
+      child: ListView(controller: _ctrl, padding: widget.padding, children: widget.children),
+    );
   }
 }

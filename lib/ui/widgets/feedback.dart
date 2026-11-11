@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../core/l10n.dart';
@@ -212,11 +214,54 @@ class _AppDialog extends StatelessWidget {
 
 /// Popup menu at a pointer position (context menus).
 Future<T?> showContextMenuAt<T>(BuildContext context, Offset position, List<PopupMenuEntry<T>> items) {
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
-  return showMenu<T>(
+  final c = context.c;
+  return showDialog<T>(
     context: context,
-    position: RelativeRect.fromRect(position & const Size(1, 1), Offset.zero & overlay.size),
-    items: items,
+    barrierColor: Colors.transparent,
+    builder: (ctx) {
+      final size = MediaQuery.sizeOf(ctx);
+      final left = position.dx.clamp(8.0, size.width - 228);
+      final top = position.dy.clamp(8.0, size.height - 280);
+      return Stack(
+        children: [
+          Positioned.fill(child: GestureDetector(onTap: () => Navigator.pop(ctx))),
+          Positioned(
+            left: left,
+            top: top,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.md),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+                child: Material(
+                  color: c.glass,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md), side: BorderSide(color: c.border)),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 180, maxWidth: 280, maxHeight: 320),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final item in items)
+                            if (item is PopupMenuDivider)
+                              Divider(height: item.height, color: c.border)
+                            else if (item is PopupMenuItem<T>)
+                              InkWell(
+                                onTap: item.enabled ? () => Navigator.pop(ctx, item.value) : null,
+                                child: SizedBox(height: item.height, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: item.child)),
+                              ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 

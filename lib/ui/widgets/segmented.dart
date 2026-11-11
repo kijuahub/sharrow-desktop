@@ -12,6 +12,7 @@ class PillSegmented<T> extends StatelessWidget {
     required this.onChanged,
     this.height = 40,
     this.enabled = true,
+    this.glass = false,
     this.accentFor,
   });
 
@@ -21,6 +22,7 @@ class PillSegmented<T> extends StatelessWidget {
   final ValueChanged<T> onChanged;
   final double height;
   final bool enabled;
+  final bool glass;
 
   /// Optional thumb color per value (e.g. green for an active tunnel).
   final Color? Function(T value)? accentFor;
@@ -35,7 +37,7 @@ class PillSegmented<T> extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: c.isDark ? const Color(0xFF1E1F24) : const Color(0xFFE6E6EA),
+        color: glass ? Colors.transparent : (c.isDark ? const Color(0xFF1E1F24) : const Color(0xFFE6E6EA)),
         borderRadius: BorderRadius.circular(height),
       ),
       child: LayoutBuilder(builder: (context, box) {
