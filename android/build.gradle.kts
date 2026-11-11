@@ -15,18 +15,14 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
+// file_picker compiles Kotlin for JVM 1.8 while its Java task targets 11.
 subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-// file_picker still compiles Kotlin for JVM 1.8 while Java is 11.
-gradle.projectsEvaluated {
-    subprojects.forEach { sub ->
-        sub.extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.compileOptions?.apply {
+    afterEvaluate {
+        extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.compileOptions?.apply {
             sourceCompatibility = JavaVersion.VERSION_17
             targetCompatibility = JavaVersion.VERSION_17
         }
-        sub.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
             compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
