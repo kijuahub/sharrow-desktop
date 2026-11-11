@@ -80,20 +80,9 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
 
   private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     switch call.method {
-    case "prepare":
-      loadManager { [weak self] m in
-        guard let self, let m else { return result(false) }
-        let proto = (m.protocolConfiguration as? NETunnelProviderProtocol) ?? NETunnelProviderProtocol()
-        proto.providerBundleIdentifier = self.extensionId
-        proto.serverAddress = "Sharrow"
-        m.protocolConfiguration = proto
-        m.localizedDescription = "Sharrow"
-        m.isEnabled = true
-        m.saveToPreferences { error in
-          if error != nil { return result(false) }
-          m.loadFromPreferences { _ in result(true) }
-        }
-      }
+    case "prepare", "openSettings":
+      // saveToPreferences is what presents the system "Add VPN Configurations" alert.
+      installProfile(result)
     case "start":
       guard let args = call.arguments as? [String: Any], let config = args["config"] as? String, let m = manager else {
         return result(FlutterError(code: "args", message: "config is required", details: nil))
@@ -110,10 +99,6 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
     case "stop":
       manager?.connection.stopVPNTunnel()
       result(nil)
-    case "openSettings":
-      // shortcut: App-Prefs is private. It opens Settings → VPN; the app page has no VPN switch.
-      openVpnSettings(0)
-      result(true)
     case "icmp":
       let args = call.arguments as? [String: Any]
       let host = args?["host"] as? String ?? ""
@@ -132,12 +117,31 @@ final class VpnBridge: NSObject, FlutterStreamHandler {
     }
   }
 
-  /// Settings → VPN. Never falls back to the app page: that page cannot add a VPN profile.
-  private func openVpnSettings(_ index: Int) {
-    let urls = ["App-Prefs:root=VPN", "App-Prefs:root=General&path=VPN", "prefs:root=General&path=VPN"]
-    guard index < urls.count, let url = URL(string: urls[index]) else { return }
-    UIApplication.shared.open(url, options: [:]) { [weak self] ok in
-      if !ok { self?.openVpnSettings(index + 1) }
+  /// Presents the system VPN alert. The completion runs only after Allow or Don't Allow.
+  private func installProfile(_ result: @escaping FlutterResult) {
+    NETunnelProviderManager.loadAllFromPreferences { [weak self] list, _ in
+      DispatchQueue.main.async {
+        guard let self else { return result(false) }
+        let manager = list?.first ?? NETunnelProviderManager()
+        manager.loadFromPreferences { _ in
+          DispatchQueue.main.async {
+            let proto = NETunnelProviderProtocol()
+            proto.providerBundleIdentifier = self.extensionId
+            proto.serverAddress = "Sharrow"
+            manager.protocolConfiguration = proto
+            manager.localizedDescription = "Sharrow"
+            manager.isEnabled = true
+            self.manager = manager
+            self.observe(manager)
+            manager.saveToPreferences { error in
+              DispatchQueue.main.async {
+                if error != nil { return result(false) }
+                manager.loadFromPreferences { _ in result(true) }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

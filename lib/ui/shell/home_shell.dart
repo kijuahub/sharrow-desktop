@@ -69,7 +69,8 @@ class _HomeShellState extends State<HomeShell> {
 
   void _onConn() {
     if (_adminDialogOpen || _conn.errorKind != CoreErrorKind.permission) return;
-    if (!Plat.isWindows && !Plat.isMobile) return;
+    // iOS shows its own "Add VPN Configurations" alert from prepare().
+    if (!Plat.isWindows && !Plat.isAndroid) return;
     _adminDialogOpen = true;
     _conn.clearError();
     final dialog = Plat.isWindows ? showAdminDialog(context) : showVpnPermissionDialog(context);

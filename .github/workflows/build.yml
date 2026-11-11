@@ -66,8 +66,18 @@ jobs:
       - name: Unsigned IPA
         run: |
           v=$(grep -m1 '^version:' pubspec.yaml | sed -E 's/version: *([^+]+).*/\1/')
+          app=build/ios/iphoneos/Runner.app
+          ext="$app/PlugIns/PacketTunnel.appex"
+          # Ad-hoc signature keeps the Network Extension entitlement, which is what
+          # makes iOS show the system "Add VPN Configurations" alert.
+          codesign --force --sign - --timestamp=none --entitlements ios/Runner/Runner.entitlements "$app"
+          if [ -d "$ext" ]; then
+            codesign --force --sign - --timestamp=none --entitlements ios/PacketTunnel/PacketTunnel.entitlements "$ext"
+            codesign -d --entitlements :- "$ext" | grep -q packet-tunnel-provider
+          fi
+          codesign -d --entitlements :- "$app" | grep -q packet-tunnel-provider
           mkdir -p Payload dist
-          cp -R build/ios/iphoneos/Runner.app Payload/
+          cp -R "$app" Payload/
           zip -qr "dist/Sharrow-$v-ios-unsigned.ipa" Payload
       - uses: actions/upload-artifact@v4
         with: { name: ios, path: dist/*.ipa }
