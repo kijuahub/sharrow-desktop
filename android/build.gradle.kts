@@ -20,13 +20,13 @@ subprojects {
 }
 
 // file_picker still compiles Kotlin for JVM 1.8 while Java is 11.
-subprojects {
-    afterEvaluate {
-        extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.compileOptions?.apply {
+gradle.projectsEvaluated {
+    subprojects.forEach { sub ->
+        sub.extensions.findByType(com.android.build.gradle.BaseExtension::class.java)?.compileOptions?.apply {
             sourceCompatibility = JavaVersion.VERSION_17
             targetCompatibility = JavaVersion.VERSION_17
         }
-        tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        sub.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
             compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
