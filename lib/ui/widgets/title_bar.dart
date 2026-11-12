@@ -8,32 +8,32 @@ import '../../core/theme/tokens.dart';
 
 /// Frameless window chrome: drag area + native-looking caption buttons.
 class TitleBar extends StatelessWidget {
-  const TitleBar({super.key, this.leading, this.title, this.height = 44});
+  const TitleBar({super.key, this.leading, this.title, this.height = 44, this.absorbTitle = false});
 
   final Widget? leading;
   final Widget? title;
   final double height;
+
+  /// The title handles its own taps, so it is not wrapped in [IgnorePointer].
+  final bool absorbTitle;
 
   @override
   Widget build(BuildContext context) {
     final mac = Plat.isMacOS;
     return SizedBox(
       height: height,
-      child: Row(
+      child: Stack(
         children: [
-          SizedBox(width: mac ? 76 : 8),
-          ?leading,
-          Expanded(
-            child: DragToMoveArea(
-              child: SizedBox.expand(
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: Align(alignment: Alignment.centerLeft, child: title),
-                ),
-              ),
-            ),
+          DragToMoveArea(child: const SizedBox.expand()),
+          if (title != null) Center(child: absorbTitle ? title! : IgnorePointer(child: title)),
+          Row(
+            children: [
+              SizedBox(width: mac ? 76 : 8),
+              ?leading,
+              const Spacer(),
+              if (!mac) const _CaptionButtons(),
+            ],
           ),
-          if (!mac) const _CaptionButtons(),
         ],
       ),
     );

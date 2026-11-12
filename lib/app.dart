@@ -61,6 +61,11 @@ class _SharrowAppState extends State<SharrowApp> {
           final mode = ready ? app.settings.get(K.themeMode) : K.themeMode.def;
           final scale = ready ? app.settings.get(K.textScale) : 1.0;
           final font = AppTheme.fonts[ready ? app.settings.get(K.font) : K.font.def] ?? 'Inter';
+          final glassStyle = ready && app.settings.get(K.uiStyle) == 'glass';
+          final bg = ready ? app.settings.get(K.colorBg) : 0;
+          final sidebar = ready ? app.settings.get(K.colorSidebar) : 0;
+          final surface = ready ? app.settings.get(K.colorSurface) : 0;
+          final text = ready ? app.settings.get(K.colorText) : 0;
           final Widget home;
           if (!ready || !_splashDone) {
             home = const SplashScreen(key: ValueKey('splash'));
@@ -72,8 +77,8 @@ class _SharrowAppState extends State<SharrowApp> {
           return MaterialApp(
             title: 'Sharrow',
             debugShowCheckedModeBanner: false,
-            theme: AppTheme.build(Brightness.light, accent, font: font, theme: mode),
-            darkTheme: AppTheme.build(Brightness.dark, accent, amoled: mode == 'black', font: font, theme: mode),
+            theme: AppTheme.build(Brightness.light, accent, font: font, theme: mode, glassStyle: glassStyle, bg: bg, sidebar: sidebar, surface: surface, textColor: text),
+            darkTheme: AppTheme.build(Brightness.dark, accent, amoled: mode == 'black', font: font, theme: mode, glassStyle: glassStyle, bg: bg, sidebar: sidebar, surface: surface, textColor: text),
             themeMode: themePreset(mode) != null ? ThemeMode.dark : _mode(mode),
             themeAnimationDuration: const Duration(milliseconds: 220),
             locale: Locale(L10n.lang),
@@ -81,7 +86,7 @@ class _SharrowAppState extends State<SharrowApp> {
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             builder: (context, child) => MediaQuery(
               data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
-              child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: child!),
+              child: Material(color: Theme.of(context).scaffoldBackgroundColor, child: child),
             ),
             home: AnimatedSwitcher(
               duration: const Duration(milliseconds: 420),

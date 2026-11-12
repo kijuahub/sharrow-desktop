@@ -24,6 +24,7 @@ import '../widgets/feedback.dart';
 import '../widgets/pressable.dart';
 import 'app_routing.dart';
 import 'settings_widgets.dart';
+import 'theme_studio.dart';
 
 class SettingsCategory {
   const SettingsCategory(this.id, this.icon, this.ru, this.en, this.builder);
@@ -90,14 +91,44 @@ List<Widget> _personal(BuildContext context) => [
 
 List<Widget> _appearance(BuildContext context) => [
       SettingsGroup(title: tr('Тема', 'Theme'), children: [
+        const _StylePicker(),
+        if (context.app.settings.get(K.uiStyle) != 'glass')
+          SwitchTile(K.glass, title: tr('Эффект стекла', 'Glass effect'), subtitle: tr('Размытие под плавающими панелями', 'Blur behind floating panels')),
         const _ThemePicker(),
         const AccentTile(),
         ChoiceTile(K.font, title: tr('Шрифт', 'Font'), options: const {'inter': 'Inter', 'onest': 'Onest', 'manrope': 'Manrope'}),
-        SwitchTile(K.glass, title: tr('Эффект стекла', 'Glass effect'), subtitle: tr('Размытие под плавающими панелями', 'Blur behind floating panels')),
         SliderTile(K.textScale, title: tr('Размер текста', 'Text size'), min: 0.85, max: 1.25, divisions: 8, format: (v) => '${(v * 100).round()}%'),
       ]),
-      SettingsGroup(title: tr('Иконка приложения', 'App icon'), children: const [
-        _IconPicker(),
+      SettingsGroup(title: tr('Свои темы', 'Custom themes'), children: customThemeTiles(context)),
+      SettingsGroup(
+        title: tr('Иконка приложения', 'App icon'),
+        footer: tr(
+          'Значок меняется у окна, панели задач и ярлыков. Файл программы в папке установки остаётся прежним: Windows не даёт переписать его, пока приложение запущено.',
+          'The icon changes on the window, taskbar and shortcuts. The program file in the install folder stays as built: Windows will not rewrite it while the app is running.',
+        ),
+        children: const [_IconPicker()],
+      ),
+      SettingsGroup(title: tr('Боковая панель', 'Sidebar'), children: [
+        const _SidebarWidth(),
+        ChoiceTile(K.sidebarIcons, title: tr('Кнопки', 'Buttons'), subtitle: tr('Сверху или по вертикальному центру панели', 'Top, or centered vertically'), options: {
+          'start': tr('Сверху', 'Top'),
+          'center': tr('По центру', 'Centered'),
+        }),
+        ChoiceTile(K.sidebarPlace, title: tr('Положение', 'Placement'), options: {
+          'left': tr('Слева', 'Left'),
+          'right': tr('Справа', 'Right'),
+          'title': tr('В заголовке', 'In the title'),
+        }),
+        SwitchTile(K.sidebarBorder, title: tr('Обводка', 'Border')),
+        SliderTile(K.sidebarRadius, title: tr('Закругление краёв', 'Corner radius'), min: 0, max: 24, divisions: 12, format: (v) => '${v.round()}'),
+        SliderTile(K.sidebarInset, title: tr('Отступ от краёв', 'Edge inset'), min: 0, max: 16, divisions: 8, format: (v) => '${v.round()}'),
+      ]),
+      SettingsGroup(title: tr('Страница серверов', 'Servers page'), children: [
+        ChoiceTile(K.serversLayout, title: tr('Расположение', 'Layout'), segmented: false, options: {
+          'standard': tr('Стандартный', 'Standard'),
+          'island': 'Dynamic Island',
+          'right': 'Right',
+        }),
       ]),
       SettingsGroup(title: tr('Кнопка подключения', 'Connect button'), children: [
         ChoiceTile(K.connectStyle, title: tr('Размер', 'Size'), options: {
@@ -128,6 +159,9 @@ List<Widget> _appearance(BuildContext context) => [
           ),
         SwitchTile(K.globeRotation, title: tr('Вращение', 'Rotation'), enabled: context.app.settings.get(K.homeScene) == 'planet'),
         SliderTile(K.globeSpeed, title: tr('Скорость вращения', 'Rotation speed'), min: 0.25, max: 3, divisions: 11, format: (v) => '×${v.toStringAsFixed(2)}', enabled: context.app.settings.get(K.homeScene) == 'planet'),
+        SwitchTile(K.globeLight, title: tr('Подсветка', 'Lighting'), subtitle: tr('Блик на планете', 'A highlight on the planet'), enabled: context.app.settings.get(K.homeScene) == 'planet'),
+        SwitchTile(K.globeSpace, title: tr('Космос на фоне', 'Space behind the planet'), enabled: context.app.settings.get(K.homeScene) == 'planet'),
+        SliderTile(K.globeOpacity, title: tr('Прозрачность планеты', 'Planet opacity'), min: 0.2, max: 1, divisions: 8, format: (v) => '${(v * 100).round()}%', enabled: context.app.settings.get(K.homeScene) == 'planet'),
       ]),
       SettingsGroup(
         title: tr('Анимации и производительность', 'Animations & performance'),
@@ -138,6 +172,102 @@ List<Widget> _appearance(BuildContext context) => [
         ],
       ),
     ];
+
+class _SidebarWidth extends StatelessWidget {
+  const _SidebarWidth();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.app.settings;
+    final v = sidebarRail(s.snapshot);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Expanded(child: Text(tr('Размер', 'Size'), style: context.tt.bodyLarge)),
+            Text('${v.round()}', style: context.tt.labelLarge),
+          ]),
+          Slider(
+            value: v,
+            min: 48,
+            max: 128,
+            divisions: 40,
+            label: '${v.round()}',
+            onChanged: (n) => s.set(K.sidebarWidth, n),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StylePicker extends StatelessWidget {
+  const _StylePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.app.settings;
+    final current = s.get(K.uiStyle);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Row(
+        children: [
+          for (final (id, label) in [('classic', tr('Классический', 'Classic')), ('glass', 'Glass')]) ...[
+            if (id == 'glass') const SizedBox(width: 12),
+            Expanded(child: _StyleCard(id: id, label: label, selected: current == id, onTap: () => s.set(K.uiStyle, id))),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StyleCard extends StatelessWidget {
+  const _StyleCard({required this.id, required this.label, required this.selected, required this.onTap});
+
+  final String id;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final glass = id == 'glass';
+    return Pressable(
+      onTap: onTap,
+      radius: 14,
+      padding: const EdgeInsets.all(2),
+      border: Border.all(color: selected ? c.accent : Colors.transparent, width: 2),
+      child: Column(
+        children: [
+          Container(
+            height: 64,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: c.isDark ? const Color(0xFF141519) : const Color(0xFFF4F4F6),
+              border: glass ? null : Border.all(color: c.border),
+            ),
+            alignment: Alignment.center,
+            child: Container(
+              width: 52,
+              height: 30,
+              decoration: BoxDecoration(
+                color: glass ? Colors.white.withValues(alpha: c.isDark ? 0.16 : 0.72) : (c.isDark ? const Color(0xFF1C1D22) : Colors.white),
+                borderRadius: BorderRadius.circular(glass ? 12 : 6),
+                border: glass ? null : Border.all(color: c.border),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: context.tt.labelMedium?.copyWith(color: selected ? c.text : c.textSec, fontWeight: selected ? FontWeight.w600 : FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
 
 class _ThemePicker extends StatelessWidget {
   const _ThemePicker();
@@ -163,6 +293,11 @@ class _ThemePicker extends StatelessWidget {
             Pressable(
               onTap: () {
                 s.set(K.themeMode, id);
+                s.set(K.colorBg, 0);
+                s.set(K.colorSidebar, 0);
+                s.set(K.colorSurface, 0);
+                s.set(K.colorText, 0);
+                s.set(K.colorTitle, 0);
                 final preset = themePreset(id);
                 if (preset != null) s.set(K.accent, preset.accent);
               },
@@ -565,10 +700,10 @@ List<Widget> _subscriptions(BuildContext context) {
                 ),
                 if (!sub.isManual)
                   Transform.scale(
-                    scale: 0.75,
+                    scale: context.c.glassStyle ? 0.86 : 0.75,
                     child: Tooltip(
                       message: tr('Автообновление', 'Auto-update'),
-                      child: Switch(value: sub.autoUpdate, onChanged: (v) => app.subs.setAutoUpdate(sub.id, v)),
+                      child: AppSwitch(value: sub.autoUpdate, onChanged: (v) => app.subs.setAutoUpdate(sub.id, v)),
                     ),
                   ),
                 if (!sub.isManual) IconBtn(icon: Icons.refresh_rounded, spinning: app.subs.updating.contains(sub.id), onTap: () => app.subs.update(sub.id)),
@@ -866,7 +1001,7 @@ List<Widget> _about(BuildContext context) {
       for (final (icon, label, url) in [
         (Icons.language_rounded, tr('Сайт', 'Website'), Brand.website),
         (Icons.send_rounded, 'Telegram', Brand.telegram),
-        (Icons.privacy_tip_outlined, tr('Конфиденциальность', 'Privacy'), Brand.privacyUrl),
+        (Icons.support_agent_rounded, tr('Поддержка', 'Support'), Brand.support),
       ])
         Pressable(
           onTap: () => app.openUrl(url),

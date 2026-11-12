@@ -26,14 +26,55 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return Container(
+    final glass = c.glassStyle;
+    return Frost(
       padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? c.surface,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: borderColor ?? c.border),
-      ),
+      radius: glass ? radius + 6 : radius,
+      color: color ?? (glass ? null : c.surface),
+      border: glass ? (borderColor == null ? null : Border.all(color: borderColor!)) : Border.all(color: borderColor ?? c.border),
       child: child,
+    );
+  }
+}
+
+/// Frosted surface. Opaque fill when the glass interface style is off,
+/// or when [color] is already nearly solid (log console, sheets).
+class Frost extends StatelessWidget {
+  const Frost({
+    super.key,
+    required this.child,
+    this.padding = EdgeInsets.zero,
+    this.radius = 0,
+    this.corners,
+    this.color,
+    this.border,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+  final BorderRadius? corners;
+  final Color? color;
+  final BoxBorder? border;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final glass = c.glassStyle && (color == null || color!.a < 0.92);
+    final r = corners ?? BorderRadius.circular(radius);
+    final box = DecoratedBox(
+      decoration: BoxDecoration(
+        color: color ?? (glass ? c.glass : c.surface),
+        borderRadius: r,
+        border: border,
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+    if (!glass) return box;
+    final sigma = context.app.settings.get(K.lowFps) ? 10.0 : 24.0;
+    return ClipRRect(
+      borderRadius: r,
+      child: BackdropFilter(filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma), child: box),
     );
   }
 }
@@ -55,6 +96,7 @@ class GlassPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    if (c.glassStyle) return Frost(padding: padding, radius: radius + 4, child: child);
     final glass = context.app.settings.get(K.glass);
     final box = Container(
       padding: padding,
@@ -97,7 +139,12 @@ class SectionLabel extends StatelessWidget {
         padding: padding,
         child: Row(
           children: [
-            Expanded(child: Text(text.toUpperCase(), style: context.tt.labelSmall)),
+            Expanded(
+              child: Text(
+                context.c.glassStyle ? text : text.toUpperCase(),
+                style: context.c.glassStyle ? context.tt.labelMedium?.copyWith(color: context.c.textSec) : context.tt.labelSmall,
+              ),
+            ),
             ?trailing,
           ],
         ),

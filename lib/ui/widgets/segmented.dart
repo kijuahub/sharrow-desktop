@@ -31,13 +31,18 @@ class PillSegmented<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final index = values.indexOf(selected).clamp(0, values.length - 1);
-    final thumbColor = accentFor?.call(selected) ?? c.accent;
-    final onThumb = ThemeData.estimateBrightnessForColor(thumbColor) == Brightness.dark ? Colors.white : const Color(0xFF111215);
+    final hinted = accentFor?.call(selected);
+    final ios = c.glassStyle && hinted == null;
+    final thumbColor = hinted ?? (ios ? (c.isDark ? const Color(0xFF3A3A3C) : Colors.white) : c.accent);
+    final onThumb = ios
+        ? (c.isDark ? Colors.white : const Color(0xFF111215))
+        : (ThemeData.estimateBrightnessForColor(thumbColor) == Brightness.dark ? Colors.white : const Color(0xFF111215));
+    final track = ios ? (c.isDark ? const Color(0x3D767680) : const Color(0x1F767680)) : (c.isDark ? const Color(0xFF1E1F24) : const Color(0xFFE6E6EA));
     return Container(
       height: height,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: glass ? Colors.transparent : (c.isDark ? const Color(0xFF1E1F24) : const Color(0xFFE6E6EA)),
+        color: glass ? Colors.transparent : track,
         borderRadius: BorderRadius.circular(height),
       ),
       child: LayoutBuilder(builder: (context, box) {

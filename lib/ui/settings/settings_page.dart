@@ -86,11 +86,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       context.app.settings.set(K.lastSettingsSection, cat.id);
                     }),
                     selected: !narrow && _selected == cat.id,
-                    selectedColor: c.isDark ? const Color(0x14FFFFFF) : const Color(0x0F000000),
-                    radius: Radii.sm + 2,
+                    selectedColor: c.glassStyle
+                        ? (c.isDark ? const Color(0x28FFFFFF) : const Color(0xB8FFFFFF))
+                        : (c.isDark ? const Color(0x14FFFFFF) : const Color(0x0F000000)),
+                    radius: c.glassStyle ? 12 : Radii.sm + 2,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     child: Row(children: [
-                      Icon(cat.icon, size: 17, color: !narrow && _selected == cat.id ? c.text : c.textSec),
+                      Icon(cat.icon, size: 17, color: !narrow && _selected == cat.id ? (c.glassStyle ? c.accent : c.text) : c.textSec),
                       const SizedBox(width: 11),
                       Expanded(
                         child: Text(

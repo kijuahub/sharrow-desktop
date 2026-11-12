@@ -82,10 +82,14 @@ class SColors extends ThemeExtension<SColors> {
     required this.glass,
     required this.dot,
     this.amoled = false,
+    this.glassStyle = false,
   });
 
   final Brightness brightness;
   final bool amoled;
+
+  /// Full frosted interface, not the floating-panel blur toggle.
+  final bool glassStyle;
   final Color bg;
   final Color sidebar;
   final Color surface;
@@ -202,11 +206,63 @@ class SColors extends ThemeExtension<SColors> {
     );
   }
 
+  /// Replaces the containers a custom theme paints itself.
+  SColors recolor({Color? bg, Color? sidebar, Color? surface, Color? text}) {
+    final nextText = text ?? this.text;
+    final nextSurface = surface ?? this.surface;
+    return SColors(
+      brightness: brightness,
+      amoled: amoled,
+      glassStyle: glassStyle,
+      bg: bg ?? this.bg,
+      sidebar: sidebar ?? this.sidebar,
+      surface: nextSurface,
+      surfaceHi: surface == null ? surfaceHi : Color.alphaBlend(Colors.white.withValues(alpha: isDark ? 0.08 : 0.4), nextSurface),
+      hover: hover,
+      border: border,
+      borderStrong: borderStrong,
+      text: nextText,
+      textSec: text == null ? textSec : nextText.withValues(alpha: 0.68),
+      textTer: text == null ? textTer : nextText.withValues(alpha: 0.42),
+      accent: accent,
+      onAccent: onAccent,
+      success: success,
+      warning: warning,
+      danger: danger,
+      glass: surface == null ? glass : nextSurface.withValues(alpha: isDark ? 0.82 : 0.92),
+      dot: dot,
+    );
+  }
+
+  /// Translucent surfaces so a backdrop blur reads as glass.
+  SColors withGlass() => SColors(
+        brightness: brightness,
+        amoled: amoled,
+        glassStyle: true,
+        bg: bg,
+        sidebar: sidebar,
+        surface: isDark ? const Color(0x14FFFFFF) : const Color(0xA6FFFFFF),
+        surfaceHi: isDark ? const Color(0x1FFFFFFF) : const Color(0xD6FFFFFF),
+        hover: hover,
+        border: const Color(0x00000000),
+        borderStrong: isDark ? const Color(0x24FFFFFF) : const Color(0x24000000),
+        text: text,
+        textSec: textSec,
+        textTer: textTer,
+        accent: accent,
+        onAccent: onAccent,
+        success: success,
+        warning: warning,
+        danger: danger,
+        glass: isDark ? const Color(0x1AFFFFFF) : const Color(0xB3FFFFFF),
+        dot: dot,
+      );
+
   @override
   SColors copyWith({Color? accent}) {
     final a = accent ?? this.accent;
-    if (amoled) return SColors.black(a);
-    return isDark ? SColors.dark(a) : SColors.light(a);
+    final base = amoled ? SColors.black(a) : (isDark ? SColors.dark(a) : SColors.light(a));
+    return glassStyle ? base.withGlass() : base;
   }
 
   @override
@@ -216,6 +272,7 @@ class SColors extends ThemeExtension<SColors> {
     return SColors(
       brightness: t < 0.5 ? brightness : other.brightness,
       amoled: t < 0.5 ? amoled : other.amoled,
+      glassStyle: t < 0.5 ? glassStyle : other.glassStyle,
       bg: l(bg, other.bg),
       sidebar: l(sidebar, other.sidebar),
       surface: l(surface, other.surface),

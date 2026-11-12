@@ -72,7 +72,6 @@ class AboutPage extends StatelessWidget {
                     _Link(Icons.language_rounded, tr('Сайт', 'Website'), () => app.openUrl(Brand.website)),
                     _Link(Icons.send_rounded, 'Telegram', () => app.openUrl(Brand.telegram)),
                     _Link(Icons.support_agent_rounded, tr('Поддержка', 'Support'), () => app.openUrl(Brand.support)),
-                    _Link(Icons.privacy_tip_outlined, tr('Политика конфиденциальности', 'Privacy policy'), () => app.openUrl(Brand.privacyUrl)),
                     _Link(Icons.description_outlined, tr('Лицензии', 'Licenses'), () => showLicensePage(context: context, applicationName: Brand.appName, applicationVersion: app.appVersion)),
                   ]),
                 ),

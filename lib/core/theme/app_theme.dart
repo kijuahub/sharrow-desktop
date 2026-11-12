@@ -8,13 +8,35 @@ abstract final class AppTheme {
   static const mono = 'monospace';
   static const monoFallback = ['Cascadia Mono', 'Consolas', 'SF Mono', 'Menlo', 'JetBrains Mono', 'DejaVu Sans Mono'];
 
-  static ThemeData build(Brightness brightness, Color accent, {bool amoled = false, String font = 'Inter', String theme = 'dark'}) {
+  static ThemeData build(
+    Brightness brightness,
+    Color accent, {
+    bool amoled = false,
+    String font = 'Inter',
+    String theme = 'dark',
+    bool glassStyle = false,
+    int bg = 0,
+    int sidebar = 0,
+    int surface = 0,
+    int textColor = 0,
+  }) {
     final preset = themePreset(theme);
-    final c = preset != null
+    var c = preset != null
         ? SColors.tinted(Color(preset.bg), accent)
         : brightness == Brightness.light
             ? SColors.light(accent)
             : (amoled ? SColors.black(accent) : SColors.dark(accent));
+    if (glassStyle) c = c.withGlass();
+    if (bg != 0 || sidebar != 0 || surface != 0 || textColor != 0) {
+      c = c.recolor(
+        bg: bg == 0 ? null : Color(bg),
+        sidebar: sidebar == 0 ? null : Color(sidebar),
+        surface: surface == 0 ? null : Color(surface),
+        text: textColor == 0 ? null : Color(textColor),
+      );
+    }
+    final sheet = glassStyle ? (c.isDark ? const Color(0xE6181A20) : const Color(0xF4FFFFFF)) : c.surface;
+    final fieldRadius = glassStyle ? 16.0 : Radii.md;
     final scheme = ColorScheme.fromSeed(
       seedColor: c.accent,
       brightness: brightness,
@@ -73,7 +95,7 @@ abstract final class AppTheme {
         decoration: BoxDecoration(
           color: c.surfaceHi,
           borderRadius: BorderRadius.circular(Radii.sm),
-          border: Border.fromBorderSide(hairline),
+          border: glassStyle ? null : Border.fromBorderSide(hairline),
         ),
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -81,39 +103,42 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         shadowColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md), side: BorderSide(color: Colors.white.withValues(alpha: 0.14))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(glassStyle ? 16 : Radii.md),
+          side: glassStyle ? BorderSide.none : BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+        ),
         textStyle: text.bodyMedium,
         labelTextStyle: WidgetStatePropertyAll(text.bodyMedium),
         menuPadding: const EdgeInsets.symmetric(vertical: 6),
       ),
       menuTheme: MenuThemeData(
         style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(c.surfaceHi),
+          backgroundColor: WidgetStatePropertyAll(glassStyle ? sheet : c.surfaceHi),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md), side: hairline)),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassStyle ? 16 : Radii.md), side: glassStyle ? BorderSide.none : hairline)),
           padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6)),
         ),
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: sheet,
         surfaceTintColor: Colors.transparent,
-        elevation: 24,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.xl), side: hairline),
+        elevation: glassStyle ? 0 : 24,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassStyle ? 28 : Radii.xl), side: glassStyle ? BorderSide.none : hairline),
         titleTextStyle: text.titleLarge,
         contentTextStyle: text.bodyMedium?.copyWith(color: c.textSec),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: c.surface,
+        backgroundColor: sheet,
         surfaceTintColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(Radii.xl))),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(glassStyle ? 28 : Radii.xl))),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: c.surfaceHi,
+        backgroundColor: glassStyle ? sheet : c.surfaceHi,
         contentTextStyle: text.bodyMedium,
         elevation: 8,
         width: 380,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.md), side: hairline),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(glassStyle ? 18 : Radii.md), side: glassStyle ? BorderSide.none : hairline),
       ),
       scrollbarTheme: ScrollbarThemeData(
         thickness: const WidgetStatePropertyAll(4),
@@ -129,19 +154,19 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: c.surfaceHi,
+        fillColor: glassStyle ? c.glass : c.surfaceHi,
         isDense: true,
         hintStyle: text.bodyMedium?.copyWith(color: c.textTer),
         labelStyle: text.bodyMedium?.copyWith(color: c.textSec),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: hairline),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(fieldRadius), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(fieldRadius), borderSide: glassStyle ? BorderSide.none : hairline),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(Radii.md),
+          borderRadius: BorderRadius.circular(fieldRadius),
           borderSide: BorderSide(color: c.accent.withValues(alpha: 0.8), width: 1.2),
         ),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: BorderSide(color: c.danger)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(Radii.md), borderSide: BorderSide(color: c.danger, width: 1.2)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(fieldRadius), borderSide: BorderSide(color: c.danger)),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(fieldRadius), borderSide: BorderSide(color: c.danger, width: 1.2)),
       ),
       switchTheme: SwitchThemeData(
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -152,6 +177,7 @@ abstract final class AppTheme {
         }),
         trackColor: WidgetStateProperty.resolveWith((st) {
           if (st.contains(WidgetState.selected)) return c.accent;
+          if (glassStyle) return c.isDark ? const Color(0xFF39393D) : const Color(0xFFE9E9EB);
           return c.isDark ? const Color(0xFF2A2B31) : const Color(0xFFDCDDE1);
         }),
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),

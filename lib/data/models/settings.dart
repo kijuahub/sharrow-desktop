@@ -21,8 +21,37 @@ abstract final class K {
 
   // Appearance
   static const themeMode = SettingKey<String>('themeMode', 'dark');
+
+  /// `classic` or `glass` (frosted surfaces, iOS-like controls).
+  static const uiStyle = SettingKey<String>('uiStyle', 'classic');
   static const accent = SettingKey<int>('accent', 0xFF5B8CFF);
   static const appIcon = SettingKey<String>('appIcon', 'default');
+
+  /// Collapsed rail: `small`, `medium` or `large`.
+  static const sidebarSize = SettingKey<String>('sidebarSize', 'small');
+
+  /// `start` or `center`.
+  static const sidebarIcons = SettingKey<String>('sidebarIcons', 'start');
+  static const sidebarRadius = SettingKey<double>('sidebarRadius', 0);
+  static const sidebarBorder = SettingKey<bool>('sidebarBorder', false);
+  static const sidebarInset = SettingKey<double>('sidebarInset', 0);
+
+  /// `left`, `right` or `title` (opens from the Sharrow title).
+  static const sidebarPlace = SettingKey<String>('sidebarPlace', 'left');
+
+  /// 0 keeps the old small/medium/large preset. Otherwise the rail width in px.
+  static const sidebarWidth = SettingKey<double>('sidebarWidth', 0);
+
+  /// 0 keeps the theme color. Any other value is a custom ARGB.
+  static const colorBg = SettingKey<int>('colorBg', 0);
+  static const colorSidebar = SettingKey<int>('colorSidebar', 0);
+  static const colorSurface = SettingKey<int>('colorSurface', 0);
+  static const colorText = SettingKey<int>('colorText', 0);
+  static const colorTitle = SettingKey<int>('colorTitle', 0);
+
+  /// Servers page: `standard`, `island` or `right`.
+  static const serversLayout = SettingKey<String>('serversLayout', 'standard');
+  static const customThemes = SettingKey<String>('customThemes', '[]');
   static const connectStyle = SettingKey<String>('connectStyle', 'standard');
   static const planetBehindButton = SettingKey<bool>('planetBehindButton', false);
   static const font = SettingKey<String>('font', 'inter');
@@ -34,6 +63,9 @@ abstract final class K {
   static const globe = SettingKey<bool>('globe', true);
   static const globeRotation = SettingKey<bool>('globeRotation', true);
   static const globeSpeed = SettingKey<double>('globeSpeed', 1.0);
+  static const globeLight = SettingKey<bool>('globeLight', false);
+  static const globeSpace = SettingKey<bool>('globeSpace', false);
+  static const globeOpacity = SettingKey<double>('globeOpacity', 1);
   static const lowFps = SettingKey<bool>('lowFps', false);
   static const glass = SettingKey<bool>('glass', true);
   static const textScale = SettingKey<double>('textScale', 1.0);
@@ -143,6 +175,7 @@ abstract final class K {
 
   // Updates
   static const checkAppUpdates = SettingKey<bool>('checkAppUpdates', true);
+  static const skipUpdateVersion = SettingKey<String>('skipUpdateVersion', '');
   static const updateChannel = SettingKey<String>('updateChannel', 'stable');
   static const autoUpdateGeo = SettingKey<bool>('autoUpdateGeo', true);
   static const geoSource = SettingKey<String>('geoSource', 'xray');
@@ -225,4 +258,11 @@ class Settings {
   }
 
   Settings copyWith(String id, Object? value) => Settings({...values, id: value});
+}
+
+/// Collapsed sidebar width: an explicit slider value, otherwise the old preset.
+double sidebarRail(Settings s) {
+  final raw = s.values[K.sidebarWidth.id];
+  if (raw is num && raw > 0) return raw.toDouble().clamp(48.0, 128.0);
+  return switch (s.get(K.sidebarSize)) { 'large' => 96.0, 'medium' => 76.0, _ => 56.0 };
 }

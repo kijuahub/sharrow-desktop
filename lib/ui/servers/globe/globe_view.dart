@@ -56,6 +56,7 @@ class GlobeView extends StatefulWidget {
     this.active = true,
     this.showFlags = true,
     this.font = 'Inter',
+    this.light = false,
   });
 
   final List<GlobeMarker> markers;
@@ -72,6 +73,7 @@ class GlobeView extends StatefulWidget {
   final bool active;
   final bool showFlags;
   final String font;
+  final bool light;
 
   @override
   State<GlobeView> createState() => _GlobeViewState();
@@ -340,12 +342,18 @@ class _ZoomControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final z = state._targetZoom ?? state.zoom;
+    final ink = c.isDark ? const Color(0xFFF4F5F7) : const Color(0xFF16181D);
+    final fill = c.glassStyle ? (c.isDark ? const Color(0xE6101218) : const Color(0xF5FFFFFF)) : c.surfaceHi;
     return Container(
-      decoration: BoxDecoration(color: c.surface.withValues(alpha: 0.85), borderRadius: BorderRadius.circular(Radii.md), border: Border.all(color: c.border)),
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border.all(color: c.isDark ? const Color(0x33FFFFFF) : const Color(0x1A000000)),
+      ),
       padding: const EdgeInsets.all(3),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        IconBtn(icon: Icons.add_rounded, size: 30, iconSize: 16, tooltip: tr('Приблизить', 'Zoom in'), onTap: z < _GlobeViewState.maxZoom ? () => state.zoomTo(z * 1.35) : null),
-        IconBtn(icon: Icons.remove_rounded, size: 30, iconSize: 16, tooltip: tr('Отдалить', 'Zoom out'), onTap: z > _GlobeViewState.minZoom ? () => state.zoomTo(z / 1.35) : null),
+        IconBtn(icon: Icons.add_rounded, size: 30, iconSize: 16, color: ink, tooltip: tr('Приблизить', 'Zoom in'), onTap: z < _GlobeViewState.maxZoom ? () => state.zoomTo(z * 1.35) : null),
+        IconBtn(icon: Icons.remove_rounded, size: 30, iconSize: 16, color: ink, tooltip: tr('Отдалить', 'Zoom out'), onTap: z > _GlobeViewState.minZoom ? () => state.zoomTo(z / 1.35) : null),
       ]),
     );
   }
@@ -458,6 +466,21 @@ class _GlobePainter extends CustomPainter {
         ..strokeWidth = dot * (0.7 + 0.3 * depth);
       canvas.drawRawPoints(ui.PointMode.points, Float32List.sublistView(_buffers[b], 0, cnt * 2), paint);
     }
+    if (s.widget.light) {
+      canvas.save();
+      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: r)));
+      canvas.drawRect(
+        Rect.fromCircle(center: center, radius: r),
+        Paint()
+          ..shader = ui.Gradient.linear(
+            Offset(cx - r, cy - r * 0.8),
+            Offset(cx + r * 0.7, cy + r),
+            [Colors.white.withValues(alpha: 0.30), const Color(0x00FFFFFF), Colors.black.withValues(alpha: 0.55)],
+            const [0, 0.42, 1],
+          ),
+      );
+      canvas.restore();
+    }
 
     // Server markers.
     final hits = <_Hit>[];
@@ -529,12 +552,14 @@ class _GlobePainter extends CustomPainter {
 
   void _drawLabel(Canvas canvas, Offset p, String text, double fade, Color color, {bool emphasized = false, double offset = 12}) {
     if (fade < 0.2) return;
-    final tp = s.label(text, TextStyle(fontFamily: s.widget.font, fontSize: 11.5, fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500, color: color));
+    final ink = c.glassStyle ? (c.isDark ? const Color(0xFFF4F5F7) : const Color(0xFF16181D)) : color;
+    final chip = c.glassStyle ? (c.isDark ? const Color(0xF2101218) : const Color(0xF5FFFFFF)) : c.surfaceHi.withValues(alpha: 0.94);
+    final tp = s.label(text, TextStyle(fontFamily: s.widget.font, fontSize: 11.5, fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500, color: ink));
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(p.dx + offset, p.dy - tp.height / 2 - 5, tp.width + 16, tp.height + 10),
       const Radius.circular(8),
     );
-    canvas.drawRRect(rect, Paint()..color = c.surfaceHi.withValues(alpha: 0.92 * fade));
+    canvas.drawRRect(rect, Paint()..color = chip.withValues(alpha: chip.a * fade));
     canvas.drawRRect(
       rect,
       Paint()

@@ -1,12 +1,12 @@
 /// Product-level constants. Replace URLs with production values.
 abstract final class Brand {
   static const appName = 'Sharrow';
-  static const website = 'https://sharrow.app';
+  static const website = 'https://github.com/sharrow-app/sharrow-desktop';
   static const buyUrl = 'https://t.me/sharrow_bot';
-  static const telegram = 'https://t.me/sharrow_vpn';
-  static const support = 'https://t.me/sharrow_support';
-  static const privacyUrl = 'https://sharrow.app/privacy';
+  static const telegram = 'https://t.me/sharrowvpn';
+  static const support = 'https://t.me/sharrow_robot';
   static const sourceUrl = 'https://github.com/sharrow-app/sharrow-desktop';
+  static const releasesUrl = 'https://api.github.com/repos/sharrow-app/sharrow-desktop/releases';
 
   /// JSON: {"version":"1.2.0","url":"https://...","notes":"...","channel":"stable"}
   static const updateFeedUrl = 'https://sharrow.app/api/desktop/latest.json';

@@ -27,9 +27,18 @@ import '../widgets/surface.dart';
 import 'globe/globe_view.dart';
 
 class ConnectPanel extends StatelessWidget {
-  const ConnectPanel({super.key, this.compact = false, this.onServerCardTap});
+  const ConnectPanel({super.key, this.compact = false, this.island = false, this.fade = false, this.fadeEnd = false, this.onServerCardTap});
 
   final bool compact;
+
+  /// Planet and the connect controls only, centered. The server card lives in the island.
+  final bool island;
+
+  /// Soft edge where this panel meets the server list.
+  final bool fade;
+
+  /// The server list sits on the right.
+  final bool fadeEnd;
   final VoidCallback? onServerCardTap;
 
   @override
@@ -47,12 +56,17 @@ class ConnectPanel extends StatelessWidget {
         final lift = scene == 'planet' && s.get(K.planetBehindButton);
         final floating = style != 'compact';
         final button = ConnectButton(size: style == 'large' || lift ? 124 : 84, ring: style == 'large');
+        final light = s.get(K.globeLight);
+        final globeOpacity = s.get(K.globeOpacity).clamp(0.2, 1.0);
+        final globe = Opacity(opacity: globeOpacity, child: _Globe(server: server, light: light));
+        final withSpace = scene == 'planet' && s.get(K.globeSpace);
         final visual = switch (scene) {
           'space' => const _Space(),
           'image' => _HomeImage(path: s.get(K.homeImage)),
           'empty' => const SizedBox.shrink(),
-          _ => _Globe(server: server),
+          _ => globe,
         };
+        final backdrop = wallpaper || withSpace;
         final stage = wallpaper
             ? Center(child: floating ? button : const SizedBox.shrink())
             : _GlobeStack(globe: visual, button: floating ? button : null, lift: lift);
@@ -63,7 +77,10 @@ class ConnectPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const _Banner(),
-              if (style == 'compact') ...[const Align(alignment: Alignment.centerRight, child: _CompactConnect()), const SizedBox(height: 8)],
+              if (style == 'compact') ...[
+                Align(alignment: island ? Alignment.center : Alignment.centerRight, child: const _CompactConnect()),
+                const SizedBox(height: 8),
+              ],
               _ServerCard(server: server, onTap: onServerCardTap),
               const SizedBox(height: 12),
               const _ModeSwitch(),
@@ -71,34 +88,63 @@ class ConnectPanel extends StatelessWidget {
           ),
         );
 
-        final column = Padding(
-          padding: EdgeInsets.fromLTRB(compact ? 16 : 24, compact ? 8 : 16, compact ? 16 : 24, compact ? 16 : 24),
-          child: Column(
-            children: [
-              const _TopRow(),
-              if (compact) SizedBox(height: math.min(MediaQuery.sizeOf(context).width - 32, 340), child: stage) else Expanded(child: stage),
-              SizedBox(height: compact ? 8 : 18),
-              controls,
-            ],
-          ),
-        );
-        if (!wallpaper) return column;
-        return Stack(fit: StackFit.expand, children: [
-          Positioned.fill(child: visual),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0x66000000), Color(0x00000000), Color(0x99000000)],
-                  stops: [0, 0.45, 1],
+        return LayoutBuilder(builder: (context, constraints) {
+          final bounded = constraints.hasBoundedHeight && constraints.maxHeight.isFinite;
+          final short = !bounded || constraints.maxHeight < 520;
+          final pad = short ? 12.0 : (compact ? 16.0 : 24.0);
+          final stageHeight = short ? (constraints.maxWidth * 0.62).clamp(180.0, 320.0) : 0.0;
+          final column = Padding(
+            padding: EdgeInsets.fromLTRB(pad, short ? 8 : 16, pad, pad),
+            child: Column(
+              children: [
+                const _TopRow(),
+                Expanded(child: stage),
+                SizedBox(height: short ? 8 : 18),
+                controls,
+              ],
+            ),
+          );
+          Widget panel = column;
+          if (backdrop) {
+            final c = context.c;
+            panel = Stack(fit: StackFit.expand, children: [
+              Positioned.fill(child: scene == 'image' ? visual : const _Space()),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x33000000), Color(0x00000000), Color(0x99000000)],
+                      stops: [0, 0.55, 1],
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          column,
-        ]);
+              Positioned.fill(child: column),
+              if (fade)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: fadeEnd ? Alignment.centerRight : Alignment.centerLeft,
+                          end: fadeEnd ? Alignment.centerLeft : Alignment.centerRight,
+                          colors: [c.bg, c.bg.withValues(alpha: 0)],
+                          stops: const [0, 0.18],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ]);
+          }
+          if (!bounded) return SizedBox(width: constraints.maxWidth, height: stageHeight + 280, child: panel);
+          if (short) {
+            return SingleChildScrollView(child: SizedBox(width: constraints.maxWidth, height: stageHeight + 280, child: panel));
+          }
+          return panel;
+        });
       },
     );
   }
@@ -131,9 +177,10 @@ class _GlobeStack extends StatelessWidget {
 }
 
 class _Globe extends StatelessWidget {
-  const _Globe({required this.server});
+  const _Globe({required this.server, this.light = false});
 
   final ServerProfile? server;
+  final bool light;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +191,8 @@ class _Globe extends StatelessWidget {
     final groups = <String, int>{};
     for (final srv in sub?.servers ?? const <ServerProfile>[]) {
       final cc = srv.countryCode;
-      if (cc != null && Geo.countries.containsKey(cc)) groups[cc] = (groups[cc] ?? 0) + 1;
+      if (cc == null || cc == 'EU' || !Geo.countries.containsKey(cc)) continue;
+      groups[cc] = (groups[cc] ?? 0) + 1;
     }
     final markers = [
       for (final e in groups.entries)
@@ -160,13 +208,14 @@ class _Globe extends StatelessWidget {
       valueListenable: app.visible,
       builder: (context, visible, _) => GlobeView(
         markers: markers,
-        selectedId: server?.countryCode,
+        selectedId: server?.countryCode == 'EU' ? null : server?.countryCode,
         connected: app.conn.isConnected,
         connecting: app.conn.status == ConnStatus.connecting,
         animate: s.get(K.animations),
         rotate: s.get(K.globeRotation),
         speed: s.get(K.globeSpeed),
         lowFps: s.get(K.lowFps),
+        light: light,
         active: visible,
         showFlags: s.get(K.showFlags),
         font: Theme.of(context).textTheme.bodyMedium?.fontFamily ?? 'Inter',
@@ -202,17 +251,42 @@ class _Space extends StatefulWidget {
 }
 
 class _SpaceState extends State<_Space> with SingleTickerProviderStateMixin {
-  static final _stars = List.generate(160, (i) {
-    final r = math.Random(i);
-    return (r.nextDouble(), r.nextDouble(), 0.35 + r.nextDouble() * 1.8, 0.25 + r.nextDouble() * 0.75);
+  /// x, y, radius, alpha, phase, flare, depth (0 far, 1 near).
+  static final _stars = List.generate(520, (i) {
+    final r = math.Random(i * 17 + 3);
+    final near = r.nextDouble() < 0.22;
+    final flare = r.nextDouble() < (near ? 0.08 : 0.03);
+    return (
+      r.nextDouble(),
+      r.nextDouble(),
+      flare ? 1.5 + r.nextDouble() : (near ? 0.7 + r.nextDouble() * 0.8 : 0.25 + r.nextDouble() * 0.55),
+      0.28 + r.nextDouble() * 0.72,
+      r.nextDouble() * math.pi * 2,
+      flare,
+      near ? 1.0 : 0.0,
+    );
   });
+  static final _lines = () {
+    final out = <(int, int)>[];
+    for (var i = 0; i < _stars.length && out.length < 36; i++) {
+      if (_stars[i].$7 > 0) continue;
+      for (var j = i + 1; j < _stars.length && out.length < 36; j++) {
+        final dx = _stars[i].$1 - _stars[j].$1;
+        final dy = _stars[i].$2 - _stars[j].$2;
+        final d = dx * dx + dy * dy;
+        if (d > 0.003 && d < 0.009) out.add((i, j));
+      }
+    }
+    return out;
+  }();
 
-  late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 90));
+  late final _drift = AnimationController(vsync: this, duration: const Duration(seconds: 36));
 
   @override
   void initState() {
     super.initState();
-    if (context.app.settings.get(K.animations)) _drift.repeat();
+    final s = context.app.settings;
+    if (s.get(K.animations) && !s.get(K.lowFps)) _drift.repeat();
   }
 
   @override
@@ -223,38 +297,79 @@ class _SpaceState extends State<_Space> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.c;
     return AnimatedBuilder(
       animation: _drift,
-      builder: (_, _) => CustomPaint(
-        painter: _StarPainter(_stars, _drift.value, c.isDark ? const Color(0xFF07080C) : const Color(0xFFE7EAF2), c.text),
-        child: const SizedBox.expand(),
-      ),
+      builder: (_, _) => CustomPaint(painter: _StarPainter(_stars, _lines, _drift.value), child: const SizedBox.expand()),
     );
   }
 }
 
 class _StarPainter extends CustomPainter {
-  _StarPainter(this.stars, this.shift, this.bg, this.star);
+  _StarPainter(this.stars, this.lines, this.shift);
 
-  final List<(double, double, double, double)> stars;
+  final List<(double, double, double, double, double, bool, double)> stars;
+  final List<(int, int)> lines;
   final double shift;
-  final Color bg;
-  final Color star;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawRect(Offset.zero & size, Paint()..color = bg);
-    final paint = Paint();
-    for (final (x, y, radius, alpha) in stars) {
-      final dy = (y + shift) % 1.0;
-      paint.color = star.withValues(alpha: alpha);
-      canvas.drawCircle(Offset(x * size.width, dy * size.height), radius, paint);
+    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF05060A));
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          colors: const [Color(0x22142644), Color(0x0005060A)],
+        ).createShader(Rect.fromCircle(center: Offset(size.width * 0.72, size.height * 0.18), radius: size.shortestSide * 0.55)),
+    );
+    Offset at(int i) {
+      final star = stars[i];
+      final speed = star.$7 > 0 ? 0.045 : 0.018;
+      final x = (star.$1 + shift * speed * 0.35) % 1.0;
+      final y = (star.$2 + shift * speed) % 1.0;
+      return Offset(x * size.width, y * size.height);
+    }
+
+    final line = Paint()
+      ..color = const Color(0x18FFFFFF)
+      ..strokeWidth = 0.6;
+    for (final (a, b) in lines) {
+      canvas.drawLine(at(a), at(b), line);
+    }
+    for (var i = 0; i < stars.length; i++) {
+      final (_, _, radius, alpha, phase, flare, depth) = stars[i];
+      final tw = 0.55 + 0.45 * math.sin(shift * math.pi * 2 * (depth > 0 ? 3 : 1) + phase);
+      final o = at(i);
+      final color = Colors.white.withValues(alpha: (alpha * tw).clamp(0.12, 1));
+      if (flare) {
+        canvas.drawCircle(o, radius * 4.2, Paint()..color = Colors.white.withValues(alpha: 0.12 * tw));
+        final spike = Paint()
+          ..color = Colors.white.withValues(alpha: 0.7 * tw)
+          ..strokeWidth = 0.8
+          ..strokeCap = StrokeCap.round;
+        final arm = radius * (depth > 0 ? 11 : 8);
+        canvas.drawLine(o.translate(-arm, 0), o.translate(arm, 0), spike);
+        canvas.drawLine(o.translate(0, -arm), o.translate(0, arm), spike);
+      }
+      canvas.drawCircle(o, radius, Paint()..color = color);
+    }
+    final meteor = (shift * 2) % 1;
+    if (meteor < 0.12) {
+      final t = meteor / 0.12;
+      final start = Offset(size.width * (0.62 - t * 0.28), size.height * (0.08 + t * 0.22));
+      final end = start.translate(-70, 36);
+      canvas.drawLine(
+        start,
+        end,
+        Paint()
+          ..strokeWidth = 1.6
+          ..strokeCap = StrokeCap.round
+          ..shader = LinearGradient(colors: [Colors.white.withValues(alpha: 0.9 * (1 - t)), const Color(0x00FFFFFF)]).createShader(Rect.fromPoints(start, end)),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_StarPainter old) => old.shift != shift || old.bg != bg;
+  bool shouldRepaint(_StarPainter old) => old.shift != shift;
 }
 
 class _TopRow extends StatelessWidget {
@@ -423,15 +538,25 @@ class _ConnectButtonState extends State<ConnectButton> with TickerProviderStateM
                     decoration: BoxDecoration(
                       color: connected ? c.accent.withValues(alpha: 0.72) : c.glass,
                       shape: BoxShape.circle,
-                      border: Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border, width: 1),
-                      boxShadow: [
-                        BoxShadow(
-                          color: connected ? c.accent.withValues(alpha: 0.38) : Colors.black.withValues(alpha: c.isDark ? 0.5 : 0.1),
-                          blurRadius: connected ? 36 : 22,
-                          spreadRadius: connected ? 2 : 0,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+                      border: c.glassStyle ? null : Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border, width: 1),
+                      boxShadow: connected
+                          ? [
+                              BoxShadow(
+                                color: c.accent.withValues(alpha: 0.38),
+                                blurRadius: 36,
+                                spreadRadius: 2,
+                                offset: const Offset(0, 6),
+                              ),
+                            ]
+                          : (c.glassStyle
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: c.isDark ? 0.5 : 0.1),
+                                    blurRadius: 22,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ]),
                     ),
                     child: Icon(Icons.power_settings_new_rounded, size: size * 0.4, color: fg),
                       ),
@@ -473,7 +598,7 @@ class _CompactConnect extends StatelessWidget {
         child: Pressable(
       onTap: conn.isBusy ? null : () => unawaited(_toggleCompact(context, conn, connected)),
       color: connected ? c.accent.withValues(alpha: 0.72) : c.glass,
-      border: Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border),
+      border: c.glassStyle ? null : Border.all(color: connected ? c.accent.withValues(alpha: 0.4) : c.border),
       radius: 18,
       padding: const EdgeInsets.fromLTRB(6, 6, 14, 6),
       child: Row(
@@ -545,7 +670,7 @@ class _ServerCard extends StatelessWidget {
         child: Pressable(
       onTap: onTap,
       color: c.glass,
-      border: Border.all(color: c.border),
+      border: c.glassStyle ? null : Border.all(color: c.border),
       radius: Radii.xl,
       pressScale: 0.99,
       padding: const EdgeInsets.fromLTRB(12, 11, 14, 11),
@@ -639,7 +764,7 @@ class _ModeSwitch extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
-          decoration: BoxDecoration(color: c.glass, borderRadius: BorderRadius.circular(24), border: Border.all(color: c.border)),
+          decoration: BoxDecoration(color: c.glass, borderRadius: BorderRadius.circular(24), border: c.glassStyle ? null : Border.all(color: c.border)),
           child: PillSegmented<String>(
             values: const ['off', 'proxy', 'tun'],
             labels: const ['Off', 'Proxy', 'TUN'],

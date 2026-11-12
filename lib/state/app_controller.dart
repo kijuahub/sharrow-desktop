@@ -22,6 +22,7 @@ import '../modules/system/autostart_service.dart';
 import '../modules/system/network_watcher.dart';
 import '../modules/system/notification_service.dart';
 import '../modules/system/privileges.dart';
+import '../modules/system/shell_icon.dart';
 import '../modules/system/single_instance.dart';
 import '../modules/system/system_proxy.dart';
 import '../modules/system/tray_service.dart';
@@ -205,7 +206,7 @@ class AppController extends ChangeNotifier with WindowListener {
       final latest = await installer.latestXrayVersion();
       if (latest != null && coreVersion != null && latest != coreVersion) await installCore(silent: true);
     }
-    if (settings.get(K.checkAppUpdates) && now - settings.get(K.lastUpdateCheck) > const Duration(hours: 12).inMilliseconds) {
+    if (settings.get(K.checkAppUpdates)) {
       await checkAppUpdate();
     }
   }
@@ -273,23 +274,39 @@ class AppController extends ChangeNotifier with WindowListener {
 
   /// Returns null when up to date, otherwise an [AppUpdate]. Throws on network errors when [throwErrors].
   Future<AppUpdate?> checkAppUpdate({bool throwErrors = false}) async {
-    final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 12);
     try {
-      final req = await client.getUrl(Uri.parse(Brand.updateFeedUrl));
-      final res = await req.close().timeout(const Duration(seconds: 10));
+      final beta = settings.get(K.updateChannel) == 'beta';
+      final req = await client.getUrl(Uri.parse(beta ? '${Brand.releasesUrl}?per_page=1' : '${Brand.releasesUrl}/latest'));
+      req.headers.set('Accept', 'application/vnd.github+json');
+      req.headers.set('User-Agent', 'Sharrow');
+      final res = await req.close().timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) throw HttpException('HTTP ${res.statusCode}');
-      final data = jsonDecode(await res.transform(utf8.decoder).join()) as Map;
+      final decoded = jsonDecode(await res.transform(utf8.decoder).join());
+      final data = decoded is List ? (decoded.isEmpty ? null : decoded.first as Map) : decoded as Map;
       settings.set(K.lastUpdateCheck, DateTime.now().millisecondsSinceEpoch);
-      final channel = '${data['channel'] ?? 'stable'}';
-      if (settings.get(K.updateChannel) == 'stable' && channel != 'stable') return null;
-      final v = '${data['version'] ?? ''}';
-      if (v.isNotEmpty && _cmpVersion(v, appVersion) > 0) {
-        update = AppUpdate(v, '${data['url'] ?? Brand.website}', '${data['notes'] ?? ''}');
-        notifyListeners();
-        _notify(tr('Доступно обновление', 'Update available'), 'Sharrow $v', K.notifications);
-        return update;
+      if (data == null) return null;
+      final v = '${data['tag_name'] ?? ''}'.replaceFirst(RegExp(r'^v'), '');
+      if (v.isEmpty || _cmpVersion(v, appVersion) <= 0) {
+        update = null;
+        return null;
       }
-      return null;
+      final assets = (data['assets'] as List?) ?? const [];
+      String? url;
+      final want = Plat.isWindows ? 'setup.exe' : (Plat.isLinux ? '.appimage' : '.dmg');
+      for (final raw in assets) {
+        final asset = raw as Map;
+        final name = '${asset['name'] ?? ''}'.toLowerCase();
+        if (Plat.isWindows && !name.contains('windows')) continue;
+        if (name.endsWith(want)) {
+          url = '${asset['browser_download_url'] ?? ''}';
+          break;
+        }
+      }
+      url ??= '${data['html_url'] ?? Brand.website}';
+      update = AppUpdate(v, url, '${data['body'] ?? ''}');
+      notifyListeners();
+      return update;
     } catch (e) {
       log.w('Update check failed: $e');
       if (throwErrors) rethrow;
@@ -297,6 +314,39 @@ class AppController extends ChangeNotifier with WindowListener {
     } finally {
       client.close(force: true);
     }
+  }
+
+  /// Downloads the latest installer and starts it.
+  Future<void> installAppUpdate(void Function(double? progress) onProgress) async {
+    final url = update?.url;
+    if (url == null || url.isEmpty) throw StateError('no update');
+    if (!url.contains('github.com') && !url.contains('githubusercontent.com')) {
+      await openUrl(url);
+      return;
+    }
+    final name = Uri.parse(url).pathSegments.last;
+    final file = File('${Directory.systemTemp.path}${Platform.pathSeparator}$name');
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      req.followRedirects = true;
+      req.headers.set('User-Agent', 'Sharrow');
+      final res = await req.close();
+      if (res.statusCode != 200) throw HttpException('HTTP ${res.statusCode}');
+      final total = res.contentLength;
+      final sink = file.openWrite();
+      var got = 0;
+      await for (final chunk in res) {
+        sink.add(chunk);
+        got += chunk.length;
+        onProgress(total > 0 ? got / total : null);
+      }
+      await sink.close();
+    } finally {
+      client.close(force: true);
+    }
+    if (Plat.isLinux) await Process.run('chmod', ['+x', file.path]);
+    await Process.start(file.path, [], mode: ProcessStartMode.detached);
   }
 
   // ---------------- actions ----------------
@@ -397,11 +447,11 @@ class AppController extends ChangeNotifier with WindowListener {
     final id = settings.get(K.appIcon);
     final icon = brandIconById(id);
     if (settings.get(K.showTray)) await tray.useBrand(id == 'default' ? null : icon.asset);
-    if (!Plat.isWindows || id == 'default') return;
+    if (!Plat.isWindows) return;
     try {
-      await windowManager.setIcon(icon.asset);
+      await ShellIcon.apply(id == 'default' ? null : icon.asset);
     } catch (e) {
-      log.w('Window icon was not applied: $e');
+      log.w('App icon was not applied: $e');
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,6 +12,26 @@ import '../widgets/feedback.dart';
 import '../widgets/pressable.dart';
 import '../widgets/segmented.dart';
 import '../widgets/surface.dart';
+
+/// Material switch in the classic style, Cupertino switch in Glass.
+class AppSwitch extends StatelessWidget {
+  const AppSwitch({super.key, required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    if (!c.glassStyle) return Switch(value: value, onChanged: onChanged);
+    return CupertinoSwitch(
+      value: value,
+      activeTrackColor: c.accent,
+      inactiveTrackColor: c.isDark ? const Color(0xFF39393D) : const Color(0xFFE9E9EB),
+      onChanged: onChanged,
+    );
+  }
+}
 
 class SettingsGroup extends StatelessWidget {
   const SettingsGroup({super.key, this.title, this.footer, required this.children});
@@ -121,8 +142,8 @@ class SwitchTile extends StatelessWidget {
         subtitle: subtitle,
         enabled: enabled,
         trailing: Transform.scale(
-          scale: 0.82,
-          child: Switch(
+          scale: context.c.glassStyle ? 0.9 : 0.82,
+          child: AppSwitch(
             value: v,
             onChanged: (nv) {
               s.set(k, nv);

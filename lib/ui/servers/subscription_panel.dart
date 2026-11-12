@@ -17,10 +17,13 @@ import '../widgets/pressable.dart';
 import '../widgets/surface.dart';
 
 class SubscriptionPanel extends StatefulWidget {
-  const SubscriptionPanel({super.key, this.shrinkWrap = false});
+  const SubscriptionPanel({super.key, this.shrinkWrap = false, this.grid = false});
 
   /// Renders the list inline (for the scrolling mobile layout).
   final bool shrinkWrap;
+
+  /// Subscription details on the left, servers as a grid on the right.
+  final bool grid;
 
   @override
   State<SubscriptionPanel> createState() => _SubscriptionPanelState();
@@ -65,6 +68,46 @@ class _SubscriptionPanelState extends State<SubscriptionPanel> {
           ],
         );
 
+        if (widget.grid) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 248,
+                child: ListView(
+                  padding: const EdgeInsets.only(right: 8),
+                  children: [
+                    _SubHeader(sub: sub),
+                    const SizedBox(height: 10),
+                    _SubInfo(sub: sub),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: LayoutBuilder(builder: (context, constraints) {
+                  if (constraints.maxWidth < 48) return const SizedBox.shrink();
+                  return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _SearchRow(controller: _search, onChanged: (v) => setState(() => _query = v), count: servers.length),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: servers.isEmpty
+                          ? _NoResults(query: _query)
+                          : GridView.builder(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 156, mainAxisExtent: 128, crossAxisSpacing: 8, mainAxisSpacing: 8),
+                              itemCount: servers.length,
+                              itemBuilder: (context, i) => _ServerTile(server: servers[i], sub: sub, grid: true),
+                            ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ],
+        );
+        }
         if (widget.shrinkWrap) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -201,7 +244,7 @@ class _SubHeader extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
                 children: [
-                  Flexible(child: Text(sub.name, style: context.tt.titleLarge, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Flexible(child: Text(sub.name, style: context.tt.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: 4),
                   Icon(Icons.unfold_more_rounded, size: 16, color: c.textTer),
                 ],
@@ -209,7 +252,8 @@ class _SubHeader extends StatelessWidget {
             ),
           ),
         ),
-        if (!sub.isManual)
+        if (!sub.isManual) ...[
+          const SizedBox(width: 8),
           IconBtn(
             icon: Icons.refresh_rounded,
             tooltip: tr('Обновить подписку', 'Update subscription'),
@@ -227,12 +271,15 @@ class _SubHeader extends StatelessWidget {
                     }
                   },
           ),
+        ],
+        const SizedBox(width: 8),
         IconBtn(
           icon: Icons.speed_rounded,
           tooltip: tr('Проверить пинг', 'Test latency'),
           spinning: pinging,
           onTap: pinging ? null : () => app.subs.pingSub(sub.id),
         ),
+        const SizedBox(width: 8),
         Builder(builder: (ctx) => IconBtn(icon: Icons.more_horiz_rounded, tooltip: tr('Настройки подписки', 'Subscription settings'), onTap: () => _menu(ctx))),
       ],
     );
@@ -275,14 +322,23 @@ class _SubInfo extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Text(
-                  sub.total > 0 ? '${Fmt.bytes(sub.used)} ${tr('из', 'of')} ${Fmt.bytes(sub.total)}' : '${Fmt.bytes(sub.used)} ${tr('использовано', 'used')}',
-                  style: context.tt.labelLarge,
+                Expanded(
+                  child: Text(
+                    sub.total > 0 ? '${Fmt.bytes(sub.used)} ${tr('из', 'of')} ${Fmt.bytes(sub.total)}' : '${Fmt.bytes(sub.used)} ${tr('использовано', 'used')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.tt.labelLarge,
+                  ),
                 ),
-                const Spacer(),
-                Text(
-                  sub.total > 0 ? '${tr('Осталось', 'Left')} ${Fmt.bytes(sub.remaining!)}' : tr('Безлимит', 'Unlimited'),
-                  style: small,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    sub.total > 0 ? '${tr('Осталось', 'Left')} ${Fmt.bytes(sub.remaining!)}' : tr('Безлимит', 'Unlimited'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: small,
+                  ),
                 ),
               ],
             ),
@@ -422,13 +478,15 @@ class _SearchRow extends StatelessWidget {
 }
 
 class _ServerTile extends StatelessWidget {
-  const _ServerTile({required this.server, required this.sub, this.roomy = false});
+  const _ServerTile({required this.server, required this.sub, this.roomy = false, this.grid = false});
 
   final ServerProfile server;
   final Subscription sub;
 
   /// Not inside a fixed-extent list, so the tile sets its own height.
   final bool roomy;
+
+  final bool grid;
 
   Future<void> _context(BuildContext context, Offset pos) async {
     final app = context.app;
@@ -501,6 +559,31 @@ class _ServerTile extends StatelessWidget {
     final active = selected && app.conn.status == ConnStatus.connected;
     final compact = app.settings.get(K.compactList);
     final showFlags = app.settings.get(K.showFlags);
+    if (grid) {
+      return Pressable(
+        onTap: () => app.selectServer(server.id),
+        onSecondaryTapAt: (p) => _context(context, p),
+        onLongPress: () {
+          final box = context.findRenderObject() as RenderBox;
+          _context(context, box.localToGlobal(box.size.center(Offset.zero)));
+        },
+        selected: selected,
+        selectedColor: c.accent.withValues(alpha: active ? 0.16 : 0.1),
+        color: selected ? null : c.surfaceHi,
+        radius: 16,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (showFlags) FlagIcon(server.countryCode, size: 28),
+            if (showFlags) const SizedBox(height: 8),
+            Text(Geo.cleanName(server.name), maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: context.tt.labelLarge?.copyWith(fontWeight: selected ? FontWeight.w600 : FontWeight.w500)),
+            const SizedBox(height: 4),
+            PingBadge(ping: server.ping, loading: app.subs.pinging.contains(sub.id), udp: server.isUdp),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Pressable(
@@ -512,8 +595,8 @@ class _ServerTile extends StatelessWidget {
         },
         selected: selected,
         selectedColor: c.accent.withValues(alpha: active ? 0.16 : 0.1),
-        border: Border.all(color: selected ? c.accent.withValues(alpha: active ? 0.45 : 0.28) : Colors.transparent),
-        radius: Radii.md,
+        border: Border.all(color: selected && !c.glassStyle ? c.accent.withValues(alpha: active ? 0.45 : 0.28) : Colors.transparent),
+        radius: c.glassStyle ? 16 : Radii.md,
         padding: EdgeInsets.symmetric(horizontal: roomy ? 14 : 10, vertical: roomy ? (compact ? 10 : 12) : 0),
         child: Row(
           children: [

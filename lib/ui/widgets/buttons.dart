@@ -54,7 +54,7 @@ class AppButton extends StatelessWidget {
     final c = context.c;
     final (bg, fg, border) = switch (tone) {
       ButtonTone.primary => (c.accent, c.onAccent, null),
-      ButtonTone.secondary => (c.surfaceHi, c.text, Border.all(color: c.border)),
+      ButtonTone.secondary => (c.glassStyle ? c.glass : c.surfaceHi, c.text, c.glassStyle ? null : Border.all(color: c.border)),
       ButtonTone.ghost => (Colors.transparent, c.textSec, null),
       ButtonTone.danger => (c.danger.withValues(alpha: 0.12), c.danger, Border.all(color: c.danger.withValues(alpha: 0.25))),
     };
@@ -83,7 +83,8 @@ class AppButton extends StatelessWidget {
       color: bg,
       hoverColor: tone == ButtonTone.primary ? Colors.white.withValues(alpha: 0.08) : null,
       border: border,
-      radius: Radii.md,
+      radius: c.glassStyle ? 999 : Radii.md,
+      pressScale: c.glassStyle ? 0.96 : 0.98,
       padding: EdgeInsets.symmetric(horizontal: tone == ButtonTone.ghost ? 10 : 16),
       child: SizedBox(height: height - 2, child: Center(widthFactor: 1, child: content)),
     );
@@ -144,9 +145,10 @@ class _IconBtnState extends State<IconBtn> with SingleTickerProviderStateMixin {
     return Pressable(
       onTap: widget.onTap,
       tooltip: widget.tooltip,
-      radius: Radii.sm + 1,
+      radius: c.glassStyle ? widget.size : Radii.sm + 1,
+      color: c.glassStyle ? c.glass : null,
       selected: widget.selected,
-      pressScale: 0.92,
+      pressScale: c.glassStyle ? 0.96 : 0.92,
       child: SizedBox(
         width: widget.size,
         height: widget.size,
@@ -172,8 +174,8 @@ class ChipButton extends StatelessWidget {
     final c = context.c;
     return Pressable(
       onTap: onTap,
-      color: c.surfaceHi,
-      border: Border.all(color: c.border),
+      color: c.glassStyle ? c.glass : c.surfaceHi,
+      border: c.glassStyle ? null : Border.all(color: c.border),
       radius: 999,
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       child: Row(
